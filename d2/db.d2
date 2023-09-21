@@ -1,0 +1,58 @@
+title: |md
+  # Media Tracker
+| {near: top-center}
+
+direction: right
+
+db: Database {
+    Movie: {
+        shape: sql_table
+        id: Text {constraint: primary_key}
+        source: Text
+        title: Text
+        release_date: Date
+    }
+
+    TvShow: {
+        shape: sql_table
+        id: Text {constraint: primary_key}
+        source: Text
+        title: Text
+        first_air_date: Date
+    }
+
+    Episode: {
+        shape: sql_table
+        id: Text {constraint: primary_key}
+        source: Text
+        tv_show: Relation {constraint: foreign_key}
+        title: Text
+        air_date: Date
+        season: Number
+        episode: Number
+    }
+
+    Category: {
+        shape: sql_table
+        id: Text {constraint: primary_key}
+        name: Text
+    }
+
+    MovieCategory: {
+        shape: sql_table
+        movie: Relation {constraint: foreign_key}
+        category: Relation {constraint: foreign_key}
+    }
+
+    TvShowCategory: {
+        shape: sql_table
+        tv_show: Relation {constraint: foreign_key}
+        category: Relation {constraint: foreign_key}
+    }
+
+    Movie.id <- MovieCategory.movie
+    MovieCategory.category -> Category.id
+    TvShow.id <- TvShowCategory.tv_show
+    TvShowCategory.category -> Category.id
+    TvShow.id <- Episode
+}
