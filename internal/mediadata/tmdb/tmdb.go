@@ -4,8 +4,11 @@ import (
 	"github.com/cyruzin/golang-tmdb"
 	"github.com/nouuu/mediatracker/internal/mediadata"
 	"log/slog"
+	"path"
 	"strconv"
 )
+
+const tmdbImageBaseUrl = "https://image.tmdb.org/t/p/original"
 
 type OptFunc func(opts *Opts)
 
