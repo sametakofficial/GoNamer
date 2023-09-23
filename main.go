@@ -33,6 +33,17 @@ func main() {
 		slog.Error("Failed to get movie", slog.Any("error", err))
 		os.Exit(1)
 	}
+	movieDetails, err := movieClient.GetMovieDetails(movies.Movies[0].ID)
+	if err != nil {
+		slog.Error("Failed to get movie details", slog.Any("error", err))
+		os.Exit(1)
+	}
+	mJson, err := marshalMovieDetails(movieDetails)
+	if err != nil {
+		slog.Error("Failed to marshal movie details", slog.Any("error", err))
+		os.Exit(1)
+	}
+	fmt.Println(mJson)
 	showMovieResults(mediadata.MovieResults{Movies: []mediadata.Movie{movie}})
 	tvShows, err := tvShowClient.SearchTvShow("Bleach", 1)
 	if err != nil {
@@ -45,7 +56,7 @@ func main() {
 func showMovieResults(movies mediadata.MovieResults) {
 	slog.Info("Movies")
 	for _, movie := range movies.Movies {
-		mJson, err := json.MarshalIndent(movie, "", "  ")
+		mJson, err := marshalMovie(movie)
 		if err != nil {
 			slog.Error("Failed to marshal movie", slog.Any("error", err))
 			os.Exit(1)
@@ -54,14 +65,46 @@ func showMovieResults(movies mediadata.MovieResults) {
 	}
 }
 
+func marshalMovie(movie mediadata.Movie) (string, error) {
+	mJson, err := json.MarshalIndent(movie, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
+}
+
+func marshalMovieDetails(movieDetails mediadata.MovieDetails) (string, error) {
+	mJson, err := json.MarshalIndent(movieDetails, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
+}
+
 func showTvShowResults(tvShows mediadata.TvShowResults) {
 	slog.Info("TvShows")
 	for _, tvShow := range tvShows.TvShows {
-		mJson, err := json.MarshalIndent(tvShow, "", "  ")
+		mJson, err := marshalTvShow(tvShow)
 		if err != nil {
 			slog.Error("Failed to marshal tv show", slog.Any("error", err))
 			os.Exit(1)
 		}
 		fmt.Println(string(mJson))
 	}
+}
+
+func marshalTvShow(tvShow mediadata.TvShow) (string, error) {
+	mJson, err := json.MarshalIndent(tvShow, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
+}
+
+func marshalTvShowDetails(tvShowDetails mediadata.TvShowDetails) (string, error) {
+	mJson, err := json.MarshalIndent(tvShowDetails, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
 }
