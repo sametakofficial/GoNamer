@@ -1,5 +1,12 @@
 package mediadata
 
+type Status string
+
+const (
+	StatusReturning Status = "Returning Series"
+	StatusEnded     Status = "Ended"
+)
+
 type Genre struct {
 	ID   string
 	Name string
@@ -41,6 +48,25 @@ type MovieResults struct {
 	ResultsPerPage int64
 }
 
+type Season struct {
+	SeasonNumber int
+	EpisodeCount int
+	AirDate      string
+	PosterURL    string
+}
+
+type Episode struct {
+	ID            string
+	AirDate       string
+	EpisodeNumber int
+	SeasonNumber  int
+	Name          string
+	Overview      string
+	StillURL      string
+	VoteAverage   float32
+	VoteCount     int64
+}
+
 type TvShow struct {
 	ID          string
 	Title       string
@@ -53,9 +79,15 @@ type TvShow struct {
 
 type TvShowDetails struct {
 	TvShow
-	Genres []Genre
-	Cast   []Person
-	Studio []Studio
+	SeasonCount  int
+	EpisodeCount int
+	LastEpisode  Episode
+	NextEpisode  Episode
+	Status       Status
+	Seasons      []Season
+	Genres       []Genre
+	Cast         []Person
+	Studio       []Studio
 }
 
 type TvShowResults struct {
@@ -73,4 +105,5 @@ type MovieClient interface {
 type TvShowClient interface {
 	SearchTvShow(query string, page int) (TvShowResults, error)
 	GetTvShow(id string) (TvShow, error)
+	GetTvShowDetails(id string) (TvShowDetails, error)
 }
