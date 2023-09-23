@@ -75,32 +75,6 @@ func buildGenres(genres []struct {
 	return g
 }
 
-func buildCast(cast []struct {
-	Adult              bool    `json:"adult"`
-	CastID             int64   `json:"cast_id"`
-	Character          string  `json:"character"`
-	CreditID           string  `json:"credit_id"`
-	Gender             int     `json:"gender"`
-	ID                 int64   `json:"id"`
-	KnownForDepartment string  `json:"known_for_department"`
-	Name               string  `json:"name"`
-	Order              int     `json:"order"`
-	OriginalName       string  `json:"original_name"`
-	Popularity         float32 `json:"popularity"`
-	ProfilePath        string  `json:"profile_path"`
-}) []mediadata.Person {
-	var c = make([]mediadata.Person, len(cast))
-	for i, person := range cast {
-		c[i] = mediadata.Person{
-			ID:         strconv.FormatInt(person.ID, 10),
-			Name:       person.Name,
-			Character:  person.Character,
-			ProfileURL: tmdbImageBaseUrl + person.ProfilePath,
-		}
-	}
-	return c
-}
-
 func buildStudio(studios []struct {
 	Name          string `json:"name"`
 	ID            int64  `json:"id"`
