@@ -51,6 +51,23 @@ func main() {
 		os.Exit(1)
 	}
 	showTvShowResults(tvShows)
+	tvShow, err := tvShowClient.GetTvShow(tvShows.TvShows[0].ID)
+	if err != nil {
+		slog.Error("Failed to get tv show", slog.Any("error", err))
+		os.Exit(1)
+	}
+	showTvShowResults(mediadata.TvShowResults{TvShows: []mediadata.TvShow{tvShow}})
+	tvShowDetails, err := tvShowClient.GetTvShowDetails(tvShows.TvShows[0].ID)
+	if err != nil {
+		slog.Error("Failed to get tv show details", slog.Any("error", err))
+		os.Exit(1)
+	}
+	tvJson, err := marshalTvShowDetails(tvShowDetails)
+	if err != nil {
+		slog.Error("Failed to marshal tv show details", slog.Any("error", err))
+		os.Exit(1)
+	}
+	fmt.Println(tvJson)
 }
 
 func showMovieResults(movies mediadata.MovieResults) {
