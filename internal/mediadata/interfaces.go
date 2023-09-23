@@ -1,31 +1,67 @@
 package mediadata
 
+type Genre struct {
+	ID   string
+	Name string
+}
+
+type Person struct {
+	ID         string
+	Name       string
+	Character  string
+	ProfileURL string
+}
+
+type Studio struct {
+	ID   string
+	Name string
+}
+
 type Movie struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Overview    string `json:"overview"`
-	ReleaseDate string `json:"release_date"`
-	PosterURL   string `json:"poster_url"`
+	ID          string
+	Title       string
+	Overview    string
+	ReleaseDate string
+	PosterURL   string
+	Rating      float32
+	RatingCount int64
+}
+
+type MovieDetails struct {
+	Movie
+	Runtime int
+	Genres  []Genre
+	Cast    []Person
+	Studio  []Studio
 }
 
 type MovieResults struct {
-	Movies         []Movie `json:"movies"`
-	Totals         int64   `json:"totals"`
-	ResultsPerPage int64   `json:"results_per_page"`
+	Movies         []Movie
+	Totals         int64
+	ResultsPerPage int64
 }
 
 type TvShow struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Overview    string `json:"overview"`
-	FistAirDate string `json:"first_air_date"`
-	PosterURL   string `json:"poster_url"`
+	ID          string
+	Title       string
+	Overview    string
+	FistAirDate string
+	PosterURL   string
+	Rating      float32
+	RatingCount int64
+}
+
+type TvShowDetails struct {
+	TvShow
+	Genres []Genre
+	Cast   []Person
+	Studio []Studio
 }
 
 type TvShowResults struct {
-	TvShows        []TvShow `json:"tv_shows"`
-	Totals         int64    `json:"totals"`
-	ResultsPerPage int64    `json:"results_per_page"`
+	TvShows        []TvShow
+	Totals         int64
+	ResultsPerPage int64
 }
 
 type MovieClient interface {

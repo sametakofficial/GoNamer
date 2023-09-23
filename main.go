@@ -28,6 +28,12 @@ func main() {
 		os.Exit(1)
 	}
 	showMovieResults(movies)
+	movie, err := movieClient.GetMovie(movies.Movies[0].ID)
+	if err != nil {
+		slog.Error("Failed to get movie", slog.Any("error", err))
+		os.Exit(1)
+	}
+	showMovieResults(mediadata.MovieResults{Movies: []mediadata.Movie{movie}})
 	tvShows, err := tvShowClient.SearchTvShow("Bleach", 1)
 	if err != nil {
 		slog.Error("Failed to search tv show", slog.Any("error", err))
