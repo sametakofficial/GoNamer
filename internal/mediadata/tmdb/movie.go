@@ -4,7 +4,6 @@ import (
 	"github.com/cyruzin/golang-tmdb"
 	"github.com/nouuu/mediatracker/internal/mediadata"
 	"log/slog"
-	"path"
 	"strconv"
 )
 
@@ -22,7 +21,9 @@ func NewMovieClient(APIKey string, opts ...OptFunc) mediadata.MovieClient {
 }
 
 func (t *tmdbClient) SearchMovie(query string, page int) (mediadata.MovieResults, error) {
-	searchMovies, err := t.client.GetSearchMovies(query, cfgMap(t.opts))
+	searchMovies, err := t.client.GetSearchMovies(query, cfgMap(t.opts, map[string]string{
+		"page": strconv.Itoa(page),
+	}))
 	if err != nil {
 		return mediadata.MovieResults{}, err
 	}
@@ -42,14 +43,30 @@ func (t *tmdbClient) GetMovie(id string) (mediadata.Movie, error) {
 	}
 	movieDetails, err := t.client.GetMovieDetails(
 		idInt,
-		cfgMap(t.opts, map[string]string{
-			"append_to_response": "credits",
-		}),
+		cfgMap(t.opts),
 	)
 	if err != nil {
 		return mediadata.Movie{}, err
 	}
 	return buildMovie(movieDetails), nil
+}
+
+func (t *tmdbClient) GetMovieDetails(id string) (mediadata.MovieDetails, error) {
+	var idInt int
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return mediadata.MovieDetails{}, err
+	}
+	movieDetails, err := t.client.GetMovieDetails(
+		idInt,
+		cfgMap(t.opts, map[string]string{
+			"append_to_response": "credits",
+		}),
+	)
+	if err != nil {
+		return mediadata.MovieDetails{}, err
+	}
+	return buildMovieDetails(movieDetails), nil
 }
 
 func buildMovie(movie *tmdb.MovieDetails) mediadata.Movie {
@@ -58,9 +75,27 @@ func buildMovie(movie *tmdb.MovieDetails) mediadata.Movie {
 		Title:       movie.Title,
 		Overview:    movie.Overview,
 		ReleaseDate: movie.ReleaseDate,
-		PosterURL:   path.Join(tmdbImageBaseUrl, movie.PosterPath),
+		PosterURL:   tmdbImageBaseUrl + movie.PosterPath,
 		Rating:      movie.VoteAverage,
 		RatingCount: movie.VoteCount,
+	}
+}
+
+func buildMovieDetails(details *tmdb.MovieDetails) mediadata.MovieDetails {
+	return mediadata.MovieDetails{
+		Movie: mediadata.Movie{
+			ID:          strconv.FormatInt(details.ID, 10),
+			Title:       details.Title,
+			Overview:    details.Overview,
+			ReleaseDate: details.ReleaseDate,
+			PosterURL:   tmdbImageBaseUrl + details.PosterPath,
+			Rating:      details.VoteAverage,
+			RatingCount: details.VoteCount,
+		},
+		Runtime: details.Runtime,
+		Genres:  buildGenres(details.Genres),
+		Cast:    buildCast(details.Credits.Cast),
+		Studio:  buildStudio(details.ProductionCompanies),
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"github.com/cyruzin/golang-tmdb"
 	"github.com/nouuu/mediatracker/internal/mediadata"
 	"log/slog"
-	"path"
 	"strconv"
 )
 
@@ -22,7 +21,9 @@ func NewTvShowClient(APIKey string, opts ...OptFunc) mediadata.TvShowClient {
 }
 
 func (t *tmdbClient) SearchTvShow(query string, page int) (mediadata.TvShowResults, error) {
-	searchTvShows, err := t.client.GetSearchTVShow(query, cfgMap(t.opts))
+	searchTvShows, err := t.client.GetSearchTVShow(query, cfgMap(t.opts, map[string]string{
+		"page": strconv.Itoa(page),
+	}))
 	if err != nil {
 		return mediadata.TvShowResults{}, err
 	}
@@ -35,8 +36,21 @@ func (t *tmdbClient) SearchTvShow(query string, page int) (mediadata.TvShowResul
 }
 
 func (t *tmdbClient) GetTvShow(id string) (mediadata.TvShow, error) {
-	//TODO implement me
-	panic("implement me")
+	var idInt int
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return mediadata.TvShow{}, err
+	}
+	tvShowDetails, err := t.client.GetTVDetails(
+		idInt,
+		cfgMap(t.opts, map[string]string{
+			"append_to_response": "credits",
+		}),
+	)
+	if err != nil {
+		return mediadata.TvShow{}, err
+	}
+	return buildTvShow(tvShowDetails), nil
 }
 
 func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
@@ -45,7 +59,7 @@ func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
 		Title:       tvShow.Name,
 		Overview:    tvShow.Overview,
 		FistAirDate: tvShow.FirstAirDate,
-		PosterURL:   path.Join(tmdbImageBaseUrl, tvShow.PosterPath),
+		PosterURL:   tmdbImageBaseUrl + tvShow.PosterPath,
 		Rating:      tvShow.VoteAverage,
 		RatingCount: tvShow.VoteCount,
 	}
