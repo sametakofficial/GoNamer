@@ -67,6 +67,7 @@ type TvShowResults struct {
 type MovieClient interface {
 	SearchMovie(query string, page int) (MovieResults, error)
 	GetMovie(id string) (Movie, error)
+	GetMovieDetails(id string) (MovieDetails, error)
 }
 
 type TvShowClient interface {
