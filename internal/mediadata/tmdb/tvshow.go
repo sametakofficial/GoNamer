@@ -7,7 +7,7 @@ import (
 	"github.com/nouuu/mediatracker/internal/mediadata"
 )
 
-func NewTvShowClient(APIKey string, opts ...OptFunc) mediadata.TvShowClient {
+func NewTvShowClient(APIKey string, opts ...OptFunc) (mediadata.TvShowClient, error) {
 	o := defaultOpts(APIKey)
 	for _, optF := range opts {
 		optF(&o.Opts)
@@ -15,9 +15,9 @@ func NewTvShowClient(APIKey string, opts ...OptFunc) mediadata.TvShowClient {
 
 	client, err := tmdb.Init(o.APIKey)
 	if err != nil {
-		log.Error("Failed to initialize TMDB client", "error", err)
+		return nil, err
 	}
-	return &tmdbClient{client: client, opts: o}
+	return &tmdbClient{client: client, opts: o}, nil
 }
 
 func (t *tmdbClient) SearchTvShow(query string, page int) (mediadata.TvShowResults, error) {

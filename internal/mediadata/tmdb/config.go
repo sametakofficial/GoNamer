@@ -4,13 +4,10 @@ import (
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
-	"github.com/nouuu/mediatracker/internal/logger"
 	"github.com/nouuu/mediatracker/internal/mediadata"
 )
 
 const tmdbImageBaseUrl = "https://image.tmdb.org/t/p/original"
-
-var log = logger.GetLogger()
 
 type OptFunc func(opts *Opts)
 

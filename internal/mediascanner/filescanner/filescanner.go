@@ -1,6 +1,7 @@
 package filescanner
 
 import (
+	"context"
 	"io/fs"
 	"path/filepath"
 	"slices"
@@ -10,7 +11,6 @@ import (
 )
 
 var (
-	log        = logger.GetLogger()
 	allowedExt = []string{".mkv", ".mp4", ".avi", ".mov", ".flv", ".wmv", ".webm", ".m4v", ".mpg", ".mpeg", ".3gp", ".3g2", ".ogv", ".ogg", ".drc", ".gif", ".gifv", ".mng", ".avi", ".mov", ".qt", ".wmv", ".yuv", ".rm", ".rmvb", ".asf", ".amv", ".mp4", ".m4p", ".m4v", ".mpg", ".mp2", ".mpeg", ".mpe", ".mpv", ".mpg", ".mpeg", ".m2v", ".m4v", ".svi", ".3gp", ".3g2", ".mxf", ".roq", ".nsv", ".flv", ".f4v", ".f4p", ".f4a", ".f4b"}
 )
 
@@ -21,12 +21,13 @@ func New() mediascanner.MediaScanner {
 	return &FileScanner{}
 }
 
-func (f *FileScanner) ScanMovies(path string, options ...mediascanner.ScanMoviesOptions) (movies []mediascanner.Movie, err error) {
+func (f *FileScanner) ScanMovies(ctx context.Context, path string, options ...mediascanner.ScanMoviesOptions) (movies []mediascanner.Movie, err error) {
+	log := logger.FromContext(ctx)
 	var opts mediascanner.ScanMoviesOptions
 	if len(options) > 0 {
 		opts = options[0]
 	}
-	files, err := scanDirectory(path, opts.Recursively)
+	files, err := scanDirectory(ctx, path, opts.Recursively)
 	if err != nil {
 		log.With("error", err).Error("Error scanning directory")
 		return
@@ -34,18 +35,19 @@ func (f *FileScanner) ScanMovies(path string, options ...mediascanner.ScanMovies
 
 	for _, file := range files {
 		if isFileAllowedExt(file) {
-			movies = append(movies, parseMovieFileName(file))
+			movies = append(movies, parseMovieFileName(ctx, file))
 		}
 	}
 	return
 }
 
-func (f *FileScanner) ScanEpisodes(path string, options ...mediascanner.ScanEpisodesOptions) (episodes []mediascanner.Episode, err error) {
+func (f *FileScanner) ScanEpisodes(ctx context.Context, path string, options ...mediascanner.ScanEpisodesOptions) (episodes []mediascanner.Episode, err error) {
+	log := logger.FromContext(ctx)
 	var opts mediascanner.ScanEpisodesOptions
 	if len(options) > 0 {
 		opts = options[0]
 	}
-	files, err := scanDirectory(path, opts.Recursively)
+	files, err := scanDirectory(ctx, path, opts.Recursively)
 	if err != nil {
 		log.With("error", err).Error("Error scanning directory")
 		return
@@ -53,13 +55,19 @@ func (f *FileScanner) ScanEpisodes(path string, options ...mediascanner.ScanEpis
 
 	for _, file := range files {
 		if isFileAllowedExt(file) {
-			episodes = append(episodes, parseEpisodeFileName(file))
+			ctx = logger.InjectLogger(ctx, log.With("file", file))
+			parsed := parseEpisodeFileName(ctx, file, opts.ExcludeUnparsed)
+			if parsed.Name == "" {
+				continue
+			}
+			episodes = append(episodes, parsed)
 		}
 	}
 	return
 }
 
-func scanDirectory(path string, recursive bool) (files []string, err error) {
+func scanDirectory(ctx context.Context, path string, recursive bool) (files []string, err error) {
+	log := logger.FromContext(ctx)
 	err = filepath.WalkDir(path, func(filePath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			log.With("error", err).Error("Error accessing path")

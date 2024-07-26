@@ -1,11 +1,14 @@
 package mediascanner
 
+import "context"
+
 type ScanMoviesOptions struct {
 	Recursively bool
 }
 
 type ScanEpisodesOptions struct {
-	Recursively bool
+	Recursively     bool
+	ExcludeUnparsed bool
 }
 
 type Movie struct {
@@ -24,6 +27,6 @@ type Episode struct {
 }
 
 type MediaScanner interface {
-	ScanMovies(path string, options ...ScanMoviesOptions) ([]Movie, error)
-	ScanEpisodes(path string, options ...ScanEpisodesOptions) ([]Episode, error)
+	ScanMovies(ctx context.Context, path string, options ...ScanMoviesOptions) ([]Movie, error)
+	ScanEpisodes(ctx context.Context, path string, options ...ScanEpisodesOptions) ([]Episode, error)
 }

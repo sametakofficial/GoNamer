@@ -1,32 +1,41 @@
 package main
 
 import (
+	"context"
+	"time"
+
 	"github.com/nouuu/mediatracker/conf"
 	"github.com/nouuu/mediatracker/internal/logger"
 	"github.com/nouuu/mediatracker/internal/mediascanner"
 	"github.com/nouuu/mediatracker/internal/mediascanner/filescanner"
 )
 
-var log = logger.GetLogger()
-
 func main() {
+	//logger.SetLoggerLevel(zapcore.InfoLevel)
+	ctx := context.Background()
+	log := logger.FromContext(ctx)
+	start := time.Now()
+
 	_ = conf.LoadConfig()
+	log.Infof("Config loaded in %s", time.Since(start))
+
+	start = time.Now()
 	scanner := filescanner.New()
-	movies, err := scanner.ScanMovies("/mnt/nfs/Media/Films", mediascanner.ScanMoviesOptions{Recursively: true})
+	log.Infof("File scanner initialized in %s", time.Since(start))
+
+	start = time.Now()
+	movies, err := scanner.ScanMovies(ctx, "/mnt/nfs/Media/Films", mediascanner.ScanMoviesOptions{Recursively: true})
 	if err != nil {
-		log.Error("Error scanning movies", "error", err)
+		log.Infof("Error scanning movies: %v", err)
 		return
 	}
-	for _, movie := range movies {
-		log.Infof("Movie: %s (%d)", movie.Name, movie.Year)
-	}
-	return
-	episodes, err := scanner.ScanEpisodes("/mnt/nfs/Download/direct_download/tv", mediascanner.ScanEpisodesOptions{Recursively: true})
+	log.Infof("%d movies scanned in %s", len(movies), time.Since(start))
+
+	start = time.Now()
+	episodes, err := scanner.ScanEpisodes(ctx, "/mnt/nfs/Media/Anime", mediascanner.ScanEpisodesOptions{Recursively: true})
 	if err != nil {
-		log.Error("Error scanning episodes", "error", err)
+		log.Infof("Error scanning episodes: %v", err)
 		return
 	}
-	for _, episode := range episodes {
-		log.Infof("Episode: %s S%02dE%02d (original: %s)", episode.Name, episode.Season, episode.Episode, episode.OriginalFilename)
-	}
+	log.Infof("%d episodes scanned in %s", len(episodes), time.Since(start))
 }

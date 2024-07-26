@@ -7,7 +7,7 @@ import (
 	"github.com/nouuu/mediatracker/internal/mediadata"
 )
 
-func NewMovieClient(APIKey string, opts ...OptFunc) mediadata.MovieClient {
+func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, error) {
 	o := defaultOpts(APIKey)
 	for _, optF := range opts {
 		optF(&o.Opts)
@@ -15,9 +15,9 @@ func NewMovieClient(APIKey string, opts ...OptFunc) mediadata.MovieClient {
 
 	client, err := tmdb.Init(o.APIKey)
 	if err != nil {
-		log.Error("Failed to initialize TMDB client", "error", err)
+		return nil, err
 	}
-	return &tmdbClient{client: client, opts: o}
+	return &tmdbClient{client: client, opts: o}, nil
 }
 
 func (t *tmdbClient) SearchMovie(query string, page int) (mediadata.MovieResults, error) {
