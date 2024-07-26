@@ -1,10 +1,10 @@
 package tmdb
 
 import (
+	"strconv"
+
 	"github.com/cyruzin/golang-tmdb"
 	"github.com/nouuu/mediatracker/internal/mediadata"
-	"log/slog"
-	"strconv"
 )
 
 func NewMovieClient(APIKey string, opts ...OptFunc) mediadata.MovieClient {
@@ -15,7 +15,7 @@ func NewMovieClient(APIKey string, opts ...OptFunc) mediadata.MovieClient {
 
 	client, err := tmdb.Init(o.APIKey)
 	if err != nil {
-		slog.Error("Failed to initialize TMDB client", slog.Any("error", err))
+		log.Error("Failed to initialize TMDB client", "error", err)
 	}
 	return &tmdbClient{client: client, opts: o}
 }

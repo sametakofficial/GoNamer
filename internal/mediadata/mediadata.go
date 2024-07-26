@@ -1,5 +1,12 @@
 package mediadata
 
+import (
+	"encoding/json"
+	"fmt"
+	"log/slog"
+	"os"
+)
+
 type Status string
 
 const (
@@ -106,4 +113,60 @@ type TvShowClient interface {
 	SearchTvShow(query string, page int) (TvShowResults, error)
 	GetTvShow(id string) (TvShow, error)
 	GetTvShowDetails(id string) (TvShowDetails, error)
+}
+
+func ShowMovieResults(movies MovieResults) {
+	slog.Info("Movies")
+	for _, movie := range movies.Movies {
+		mJson, err := marshalMovie(movie)
+		if err != nil {
+			slog.Error("Failed to marshal movie", slog.Any("error", err))
+			os.Exit(1)
+		}
+		fmt.Println(string(mJson))
+	}
+}
+
+func ShowTvShowResults(tvShows TvShowResults) {
+	slog.Info("TvShows")
+	for _, tvShow := range tvShows.TvShows {
+		mJson, err := marshalTvShow(tvShow)
+		if err != nil {
+			slog.Error("Failed to marshal tv show", slog.Any("error", err))
+			os.Exit(1)
+		}
+		fmt.Println(string(mJson))
+	}
+}
+
+func marshalMovie(movie Movie) (string, error) {
+	mJson, err := json.MarshalIndent(movie, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
+}
+
+func marshalMovieDetails(movieDetails MovieDetails) (string, error) {
+	mJson, err := json.MarshalIndent(movieDetails, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
+}
+
+func marshalTvShow(tvShow TvShow) (string, error) {
+	mJson, err := json.MarshalIndent(tvShow, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
+}
+
+func marshalTvShowDetails(tvShowDetails TvShowDetails) (string, error) {
+	mJson, err := json.MarshalIndent(tvShowDetails, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(mJson), nil
 }
