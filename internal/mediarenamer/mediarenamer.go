@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -25,23 +24,24 @@ type MovieSuggestions struct {
 	SuggestedMovies []mediadata.Movie
 }
 
+type FindSuggestionCallback func(suggestion MovieSuggestions, err error)
+
 func NewMediaRenamer(movieClient mediadata.MovieClient) *MediaRenamer {
 	return &MediaRenamer{movieClient: movieClient}
 }
 
-func (mr *MediaRenamer) RenameMovies(ctx context.Context, movies []mediascanner.Movie) ([]MovieSuggestions, error) {
+func (mr *MediaRenamer) FindSuggestions(ctx context.Context, movies []mediascanner.Movie, callback ...FindSuggestionCallback) ([]MovieSuggestions, error) {
 	log := logger.FromContext(ctx)
-	var suggestions []MovieSuggestions
 	start := time.Now()
-	log.Infof("Renaming %d movies", len(movies))
+	log.Infof("Getting suggestions for %d movies", len(movies))
 
-	moviesSuggestions := mr.getMoviesSuggestions(ctx, movies, log)
+	suggestions := mr.getMoviesSuggestions(ctx, movies, log, callback...)
 
-	log.Infof("Renaming took %s for %d movies (found %d - %.2f%%)", time.Since(start), len(movies), len(moviesSuggestions), float64(len(moviesSuggestions))/float64(len(movies))*100)
+	log.Infof("Finished getting suggestions for %d movies in %s", len(movies), time.Since(start))
 	return suggestions, nil
 }
 
-func (mr *MediaRenamer) getMoviesSuggestions(ctx context.Context, movies []mediascanner.Movie, log *zap.SugaredLogger) (movieSuggestion []MovieSuggestions) {
+func (mr *MediaRenamer) getMoviesSuggestions(ctx context.Context, movies []mediascanner.Movie, log *zap.SugaredLogger, callback ...FindSuggestionCallback) (movieSuggestion []MovieSuggestions) {
 	var wg sync.WaitGroup
 	suggestionsCh := make(chan MovieSuggestions, len(movies))
 	semaphore := make(chan struct{}, 5) // Limit to 5 concurrent threads
@@ -54,14 +54,16 @@ func (mr *MediaRenamer) getMoviesSuggestions(ctx context.Context, movies []media
 			defer func() { <-semaphore }() // Release semaphore
 
 			suggestions, err := mr.SuggestMovies(ctx, movie)
+			if len(callback) > 0 {
+				for _, cb := range callback {
+					cb(suggestions, err)
+				}
+			}
 			if err != nil {
 				log.With("movie", movie).With("error", err).Error("Error suggesting movie")
 				return
 			}
-			output := fmt.Sprintf("Suggested movie '%s - %d' -> '%s - %s'", suggestions.Movie.Name, suggestions.Movie.Year, suggestions.SuggestedMovies[0].Title, suggestions.SuggestedMovies[0].Year)
-			if suggestions.Movie.Name == suggestions.SuggestedMovies[0].Title && strconv.Itoa(suggestions.Movie.Year) == suggestions.SuggestedMovies[0].Year {
-				output += " (unchanged)"
-			}
+			output := fmt.Sprintf("Suggested movie '%s (%d)' -> '%s (%s)'", suggestions.Movie.Name, suggestions.Movie.Year, suggestions.SuggestedMovies[0].Title, suggestions.SuggestedMovies[0].Year)
 			log.With("suggestions", len(suggestions.SuggestedMovies)).Debug(output)
 			suggestionsCh <- suggestions
 		}(movie)
@@ -75,10 +77,13 @@ func (mr *MediaRenamer) getMoviesSuggestions(ctx context.Context, movies []media
 	return
 }
 
-func (mr *MediaRenamer) RenameMovie(ctx context.Context, fileMovie mediascanner.Movie, mediadataMovie mediadata.Movie) error {
+func (mr *MediaRenamer) RenameMovie(ctx context.Context, fileMovie mediascanner.Movie, mediadataMovie mediadata.Movie, dryrun bool) error {
 	log := logger.FromContext(ctx)
-	filename := generateMovieFilename(mediadataMovie, fileMovie)
+	filename := generateMovieFilename("{name} - {year}{extension}", mediadataMovie, fileMovie)
 	fmt.Printf("Renaming file %s -> %s\n", fileMovie.OriginalFilename, filename)
+	if dryrun {
+		return nil
+	}
 	err := os.Rename(fileMovie.FullPath, filepath.Join(filepath.Dir(fileMovie.FullPath), filename))
 	if err != nil {
 		log.With("error", err).Error("Error renaming file")
@@ -106,8 +111,4 @@ func (mr *MediaRenamer) SuggestMovies(ctx context.Context, movie mediascanner.Mo
 	}
 
 	return
-}
-
-func generateMovieFilename(movie mediadata.Movie, fileMovie mediascanner.Movie) string {
-	return fmt.Sprintf("%s - %s%s", movie.Title, movie.Year, fileMovie.Extension)
 }
