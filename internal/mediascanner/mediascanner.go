@@ -13,6 +13,7 @@ type ScanEpisodesOptions struct {
 
 type Movie struct {
 	OriginalFilename string
+	FullPath         string
 	Name             string
 	Year             int
 	Extension        string
@@ -20,6 +21,7 @@ type Movie struct {
 
 type Episode struct {
 	OriginalFilename string
+	FullPath         string
 	Name             string
 	Season           int
 	Episode          int

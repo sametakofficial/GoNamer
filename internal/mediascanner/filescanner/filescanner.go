@@ -75,6 +75,7 @@ func scanDirectory(ctx context.Context, path string, recursive bool) (files []st
 		}
 
 		if !d.IsDir() {
+			// Append absolute path
 			files = append(files, filePath)
 		} else if !recursive && path != filePath {
 			return filepath.SkipDir

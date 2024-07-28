@@ -20,14 +20,19 @@ func NewTvShowClient(APIKey string, opts ...OptFunc) (mediadata.TvShowClient, er
 	return &tmdbClient{client: client, opts: o}, nil
 }
 
-func (t *tmdbClient) SearchTvShow(query string, page int) (mediadata.TvShowResults, error) {
-	searchTvShows, err := t.client.GetSearchTVShow(query, cfgMap(t.opts, map[string]string{
+func (t *tmdbClient) SearchTvShow(query string, year int, page int) (mediadata.TvShowResults, error) {
+	opts := map[string]string{
 		"page": strconv.Itoa(page),
-	}))
+	}
+	if year != 0 {
+		opts["year"] = strconv.Itoa(year)
+	}
+
+	searchTvShows, err := t.client.GetSearchTVShow(query, cfgMap(t.opts, opts))
 	if err != nil {
 		return mediadata.TvShowResults{}, err
 	}
-	var tvShows []mediadata.TvShow = buildTvShowFromResult(searchTvShows.SearchTVShowsResults)
+	tvShows := buildTvShowFromResult(searchTvShows.SearchTVShowsResults)
 	return mediadata.TvShowResults{
 		TvShows:        tvShows,
 		Totals:         searchTvShows.TotalResults,
@@ -70,11 +75,16 @@ func (t *tmdbClient) GetTvShowDetails(id string) (mediadata.TvShowDetails, error
 }
 
 func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
+	releaseYear := ""
+	if len(tvShow.FirstAirDate) >= 4 {
+		releaseYear = tvShow.FirstAirDate[:4]
+	}
 	return mediadata.TvShow{
 		ID:          strconv.FormatInt(tvShow.ID, 10),
 		Title:       tvShow.Name,
 		Overview:    tvShow.Overview,
 		FistAirDate: tvShow.FirstAirDate,
+		Year:        releaseYear,
 		PosterURL:   tmdbImageBaseUrl + tvShow.PosterPath,
 		Rating:      tvShow.VoteAverage,
 		RatingCount: tvShow.VoteCount,
@@ -82,12 +92,17 @@ func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
 }
 
 func buildTvShowDetails(details *tmdb.TVDetails) mediadata.TvShowDetails {
+	releaseYear := ""
+	if len(details.FirstAirDate) >= 4 {
+		releaseYear = details.FirstAirDate[:4]
+	}
 	return mediadata.TvShowDetails{
 		TvShow: mediadata.TvShow{
 			ID:          strconv.FormatInt(details.ID, 10),
 			Title:       details.Name,
 			Overview:    details.Overview,
 			FistAirDate: details.FirstAirDate,
+			Year:        releaseYear,
 			PosterURL:   tmdbImageBaseUrl + details.PosterPath,
 			Rating:      details.VoteAverage,
 			RatingCount: details.VoteCount,

@@ -36,6 +36,7 @@ type Movie struct {
 	Title       string
 	Overview    string
 	ReleaseDate string
+	Year        string
 	PosterURL   string
 	Rating      float32
 	RatingCount int64
@@ -79,6 +80,7 @@ type TvShow struct {
 	Title       string
 	Overview    string
 	FistAirDate string
+	Year        string
 	PosterURL   string
 	Rating      float32
 	RatingCount int64
@@ -104,13 +106,13 @@ type TvShowResults struct {
 }
 
 type MovieClient interface {
-	SearchMovie(query string, page int) (MovieResults, error)
+	SearchMovie(query string, year int, page int) (MovieResults, error)
 	GetMovie(id string) (Movie, error)
 	GetMovieDetails(id string) (MovieDetails, error)
 }
 
 type TvShowClient interface {
-	SearchTvShow(query string, page int) (TvShowResults, error)
+	SearchTvShow(query string, year int, page int) (TvShowResults, error)
 	GetTvShow(id string) (TvShow, error)
 	GetTvShowDetails(id string) (TvShowDetails, error)
 }

@@ -34,6 +34,7 @@ func parseMovieFileName(ctx context.Context, fileName string) (movie mediascanne
 	nameWithoutExt := strings.TrimSuffix(filename, ext)
 
 	movie.OriginalFilename = filename
+	movie.FullPath = fileName
 	movie.Extension = ext
 
 	movie.Name, movie.Year = sanitizeMovieName(ctx, nameWithoutExt)
@@ -47,6 +48,7 @@ func parseEpisodeFileName(ctx context.Context, fileName string, excludeUnparsed 
 	nameWithoutExt := strings.TrimSuffix(filename, ext)
 
 	episode.OriginalFilename = filename
+	episode.FullPath = fileName
 	episode.Extension = ext
 
 	var ignore bool

@@ -20,14 +20,18 @@ func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, erro
 	return &tmdbClient{client: client, opts: o}, nil
 }
 
-func (t *tmdbClient) SearchMovie(query string, page int) (mediadata.MovieResults, error) {
-	searchMovies, err := t.client.GetSearchMovies(query, cfgMap(t.opts, map[string]string{
+func (t *tmdbClient) SearchMovie(query string, year int, page int) (mediadata.MovieResults, error) {
+	opts := map[string]string{
 		"page": strconv.Itoa(page),
-	}))
+	}
+	if year != 0 {
+		opts["year"] = strconv.Itoa(year)
+	}
+	searchMovies, err := t.client.GetSearchMovies(query, cfgMap(t.opts, opts))
 	if err != nil {
 		return mediadata.MovieResults{}, err
 	}
-	var movies []mediadata.Movie = buildMovieFromResult(searchMovies.SearchMoviesResults)
+	movies := buildMovieFromResult(searchMovies.SearchMoviesResults)
 	return mediadata.MovieResults{
 		Movies:         movies,
 		Totals:         searchMovies.TotalResults,
@@ -70,11 +74,16 @@ func (t *tmdbClient) GetMovieDetails(id string) (mediadata.MovieDetails, error) 
 }
 
 func buildMovie(movie *tmdb.MovieDetails) mediadata.Movie {
+	releaseYear := ""
+	if len(movie.ReleaseDate) >= 4 {
+		releaseYear = movie.ReleaseDate[:4]
+	}
 	return mediadata.Movie{
 		ID:          strconv.FormatInt(movie.ID, 10),
 		Title:       movie.Title,
 		Overview:    movie.Overview,
 		ReleaseDate: movie.ReleaseDate,
+		Year:        releaseYear,
 		PosterURL:   tmdbImageBaseUrl + movie.PosterPath,
 		Rating:      movie.VoteAverage,
 		RatingCount: movie.VoteCount,
@@ -82,12 +91,18 @@ func buildMovie(movie *tmdb.MovieDetails) mediadata.Movie {
 }
 
 func buildMovieDetails(details *tmdb.MovieDetails) mediadata.MovieDetails {
+	releaseYear := ""
+	if len(details.ReleaseDate) >= 4 {
+		releaseYear = details.ReleaseDate[:4]
+
+	}
 	return mediadata.MovieDetails{
 		Movie: mediadata.Movie{
 			ID:          strconv.FormatInt(details.ID, 10),
 			Title:       details.Title,
 			Overview:    details.Overview,
 			ReleaseDate: details.ReleaseDate,
+			Year:        releaseYear,
 			PosterURL:   tmdbImageBaseUrl + details.PosterPath,
 			Rating:      details.VoteAverage,
 			RatingCount: details.VoteCount,
