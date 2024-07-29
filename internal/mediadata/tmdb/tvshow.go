@@ -120,13 +120,14 @@ func buildTvShowDetails(details *tmdb.TVDetails) mediadata.TvShowDetails {
 }
 
 func buildSeasons(seasons []struct {
-	AirDate      string `json:"air_date"`
-	EpisodeCount int    `json:"episode_count"`
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	Overview     string `json:"overview"`
-	PosterPath   string `json:"poster_path"`
-	SeasonNumber int    `json:"season_number"`
+	AirDate      string  `json:"air_date"`
+	EpisodeCount int     `json:"episode_count"`
+	ID           int64   `json:"id"`
+	Name         string  `json:"name"`
+	Overview     string  `json:"overview"`
+	PosterPath   string  `json:"poster_path"`
+	SeasonNumber int     `json:"season_number"`
+	VoteAverage  float32 `json:"vote_average"`
 }) []mediadata.Season {
 	var s = make([]mediadata.Season, len(seasons))
 	for i, season := range seasons {

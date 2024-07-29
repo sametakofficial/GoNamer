@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/nouuu/mediatracker/internal/logger"
 	"github.com/nouuu/mediatracker/internal/mediascanner"
+	"github.com/nouuu/mediatracker/pkg/logger"
 )
 
 var (

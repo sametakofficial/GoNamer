@@ -43,3 +43,13 @@ func SetLoggerLevel(level zapcore.Level) {
 	}
 	log = logger.Sugar()
 }
+
+func SetLoggerOutput(output zapcore.WriteSyncer) {
+	core := zapcore.NewCore(
+		zapcore.NewJSONEncoder(config.EncoderConfig),
+		output,
+		config.Level,
+	)
+	logger := zap.New(core)
+	log = logger.Sugar()
+}

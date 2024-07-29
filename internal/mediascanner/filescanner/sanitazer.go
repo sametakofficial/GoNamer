@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nouuu/mediatracker/internal/logger"
 	"github.com/nouuu/mediatracker/internal/mediascanner"
+	"github.com/nouuu/mediatracker/pkg/logger"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
