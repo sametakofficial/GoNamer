@@ -1,4 +1,4 @@
-module github.com/nouuu/mediatracker
+module github.com/nouuu/gonamer
 
 go 1.22
 
