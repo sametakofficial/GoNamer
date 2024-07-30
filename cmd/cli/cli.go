@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -36,7 +37,7 @@ func NewCli(scanner mediascanner.MediaScanner, mediaRenamer *mediarenamer.MediaR
 
 func (c *Cli) Run(ctx context.Context) {
 
-	movies, err := c.ScanMovies(ctx, "/mnt/nfs/Media/Films", true)
+	movies, err := c.ScanMovies(ctx)
 	if err != nil {
 		return
 	}
@@ -44,15 +45,15 @@ func (c *Cli) Run(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	err = c.RenameMovies(ctx, suggestions, "{name} - {year}{extension}", false)
+	err = c.RenameMovies(ctx, suggestions)
 
 }
 
-func (c *Cli) ScanMovies(ctx context.Context, path string, recursive bool) ([]mediascanner.Movie, error) {
-	pterm.Info.Printfln("Scanning movies...")
+func (c *Cli) ScanMovies(ctx context.Context) ([]mediascanner.Movie, error) {
+	pterm.Info.Printfln("Scanning movies in '%s'...", c.Config.MoviePath)
 	spinner, _ := pterm.DefaultSpinner.WithShowTimer(true).Start("Scanning movies...")
 	defer spinner.Stop()
-	movies, err := c.scanner.ScanMovies(ctx, path, mediascanner.ScanMoviesOptions{Recursively: true})
+	movies, err := c.scanner.ScanMovies(ctx, c.Config.MoviePath, mediascanner.ScanMoviesOptions{Recursively: c.Config.Recursive})
 	if err != nil {
 		pterm.Error.Println(pterm.Error.Sprint("Error scanning movies: %v", err))
 		return nil, err
@@ -67,7 +68,7 @@ func (c *Cli) FindSuggestions(ctx context.Context, movies []mediascanner.Movie) 
 	var failedSuggestions []mediarenamer.MovieSuggestions
 	mutex := &sync.Mutex{}
 
-	suggestions := c.mediaRenamer.FindSuggestions(ctx, movies, func(suggestion mediarenamer.MovieSuggestions, err error) {
+	suggestions := c.mediaRenamer.FindSuggestions(ctx, movies, c.Config.MaxResults, func(suggestion mediarenamer.MovieSuggestions, err error) {
 		pb.Increment()
 		if err != nil {
 			mutex.Lock()
@@ -82,11 +83,14 @@ func (c *Cli) FindSuggestions(ctx context.Context, movies []mediascanner.Movie) 
 			pterm.Println(pterm.Red(suggestion.Movie.OriginalFilename))
 		}
 	}
+	if c.Config.IncludeNotFound {
+		return append(suggestions, failedSuggestions...), nil
+	}
 
 	return suggestions, nil
 }
 
-func (c *Cli) RenameMovies(ctx context.Context, suggestions []mediarenamer.MovieSuggestions, pattern string, dryrun bool) error {
+func (c *Cli) RenameMovies(ctx context.Context, suggestions []mediarenamer.MovieSuggestions) error {
 	slices.SortFunc(suggestions, func(i, j mediarenamer.MovieSuggestions) int {
 		return strings.Compare(i.Movie.OriginalFilename, j.Movie.OriginalFilename)
 	})
@@ -98,33 +102,102 @@ func (c *Cli) RenameMovies(ctx context.Context, suggestions []mediarenamer.Movie
 		pb.Increment()
 		pb, _ = pb.Stop()
 
-		if len(suggestion.SuggestedMovies) == 1 &&
-			mediarenamer.GenerateMovieFilename(pattern, suggestion.SuggestedMovies[0], suggestion.Movie) == suggestion.Movie.OriginalFilename {
-			pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
-			pb, _ = pb.Start()
-			continue
-		}
-
-		options := make(map[string]func())
-		optionsArray := make([]string, 0)
-		for _, movie := range suggestion.SuggestedMovies {
-			key := fmt.Sprintf("%s (%s)", movie.Title, movie.Year)
-			options[key] = func() {
-				pterm.Success.Println("Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateMovieFilename(pattern, movie, suggestion.Movie)))
-			}
-			optionsArray = append(optionsArray, key)
-		}
-
-		selected, err := pterm.DefaultInteractiveSelect.WithOptions(optionsArray).Show("Test box")
+		err := c.ProcessMovieSuggestions(ctx, suggestion)
 		if err != nil {
-			pterm.Error.Println(pterm.Sprintf("Error selecting movie: %v", err))
-			pb, _ = pb.Start()
-			continue
+			return err
 		}
-		options[selected]()
+
 		pb, _ = pb.Start()
 	}
 	pb.Stop()
 	pterm.Success.Println("Finished renaming movies")
 	return nil
+}
+
+func (c *Cli) ProcessMovieSuggestions(ctx context.Context, suggestion mediarenamer.MovieSuggestions) error {
+	if len(suggestion.SuggestedMovies) == 1 {
+		if mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, suggestion.SuggestedMovies[0], suggestion.Movie) == suggestion.Movie.OriginalFilename {
+			pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
+		} else if c.Config.QuickMode {
+			pterm.Success.Println("Quick - Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, suggestion.SuggestedMovies[0], suggestion.Movie)))
+		}
+		return nil
+	}
+
+	return c.ProcessMovieSuggestionsOptions(ctx, suggestion)
+}
+
+func (c *Cli) ProcessMovieSuggestionsOptions(ctx context.Context, suggestion mediarenamer.MovieSuggestions) error {
+	options := make(map[string]func() error)
+	optionsArray := make([]string, 0)
+	for i, movie := range suggestion.SuggestedMovies {
+		key := fmt.Sprintf("%d. %s (%s)", i+1, movie.Title, movie.Year)
+		options[key] = func() error {
+			return c.RenameMovie(ctx, suggestion, movie)
+		}
+		optionsArray = append(optionsArray, key)
+	}
+	options[fmt.Sprintf("%d. Skip", len(suggestion.SuggestedMovies)+1)] = func() error {
+		pterm.Info.Println("Skipping renaming of ", pterm.Yellow(suggestion.Movie.OriginalFilename))
+		return nil
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Skip", len(suggestion.SuggestedMovies)+1))
+
+	options[fmt.Sprintf("%d. Search Manually", len(suggestion.SuggestedMovies)+2)] = func() error {
+		return c.SearchMovieSuggestionsManually(context.Background(), suggestion)
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Search Manually", len(suggestion.SuggestedMovies)+2))
+
+	options[fmt.Sprintf("%d. Rename Manually", len(suggestion.SuggestedMovies)+3)] = func() error {
+		pterm.Info.Println("Renaming manually for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
+		return nil
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Rename Manually", len(suggestion.SuggestedMovies)+3))
+
+	options[fmt.Sprintf("%d. Exit", len(suggestion.SuggestedMovies)+4)] = func() error {
+		c.Exit()
+		return nil
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Exit", len(suggestion.SuggestedMovies)+4))
+
+	selected, err := pterm.DefaultInteractiveSelect.WithMaxHeight(10).WithOptions(optionsArray).Show()
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error selecting movie: %v", err))
+		return err
+	}
+
+	return options[selected]()
+}
+
+func (c *Cli) RenameMovie(ctx context.Context, suggestion mediarenamer.MovieSuggestions, movie mediadata.Movie) error {
+	pterm.Info.Println("Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, movie, suggestion.Movie)))
+	err := c.mediaRenamer.RenameMovie(ctx, suggestion.Movie, movie, c.Config.MoviePattern, c.Config.DryRun)
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error renaming movie: %v", err))
+		return err
+	}
+	return nil
+}
+
+func (c *Cli) SearchMovieSuggestionsManually(ctx context.Context, suggestions mediarenamer.MovieSuggestions) error {
+	query, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(suggestions.Movie.Name).Show(pterm.Sprintf("Search for '%s'", suggestions.Movie.OriginalFilename))
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error getting search query: %v", err))
+	}
+
+	movies, err := c.movieClient.SearchMovie(query, 0, 1)
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error searching movie: %v", err))
+		return err
+	}
+	suggestions.SuggestedMovies = movies.Movies
+	if len(suggestions.SuggestedMovies) > c.Config.MaxResults {
+		suggestions.SuggestedMovies = suggestions.SuggestedMovies[:c.Config.MaxResults]
+	}
+	return c.ProcessMovieSuggestionsOptions(ctx, suggestions)
+}
+
+func (c *Cli) Exit() {
+	pterm.Info.Println("Exiting...")
+	os.Exit(0)
 }
