@@ -23,9 +23,10 @@ var (
 	spaceRegexes = []*regexp.Regexp{
 		regexp.MustCompile(`[^\pL\s_\d]+`),
 	}
-	extractDateRegex = regexp.MustCompile(`^(.+)(19\d{2}|20\d{2}).*$`)
-	tvShowRegex      = regexp.MustCompile(`^(.+?)(?:[sS])?(\d{1,})?(?:[eExX])?(\d{1,})(?:.*|$)`)
-	episodeOnlyRegex = regexp.MustCompile(`^(.+?)(\d{2,})(?:.*|$)`)
+	extractDateRegex    = regexp.MustCompile(`^(.+)(19\d{2}|20\d{2}).*$`)
+	tvShowRegex         = regexp.MustCompile(`^(.+?)[sS]?(\d+)[eExX](\d+)(?:.*|$)`)
+	fallbackTvShowRegex = regexp.MustCompile(`^(.+?)(\d+)[a-z]{2}\s*Season\s*(\d+)(?:.*|$)`)
+	episodeOnlyRegex    = regexp.MustCompile(`^(.+?)(\d{2,})(?:.*|$)`)
 )
 
 func parseMovieFileName(ctx context.Context, fileName string) (movie mediascanner.Movie) {
@@ -78,31 +79,44 @@ func sanitizeMovieName(ctx context.Context, nameWithoutExt string) (name string,
 }
 
 func sanitizeEpisodeName(ctx context.Context, nameWithoutExt string, excludeUnparsed bool) (name string, season int, episode int, ignore bool) {
-	log := logger.FromContext(ctx)
 	nameWithoutExt = sanitizeString(nameWithoutExt)
 
-	matches := tvShowRegex.FindStringSubmatch(nameWithoutExt)
-	if len(matches) == 4 {
-		name = strings.TrimSpace(matches[1])
-		season, _ = strconv.Atoi(matches[2])
-		episode, _ = strconv.Atoi(matches[3])
-	} else {
-		log.With("name", nameWithoutExt).Debug("Could not extract season and episode from episode name")
-		matches = episodeOnlyRegex.FindStringSubmatch(nameWithoutExt)
-		if len(matches) == 3 {
-			name = strings.TrimSpace(matches[1])
-			episode, _ = strconv.Atoi(matches[2])
-			season = 1
-		} else {
-			log.With("name", nameWithoutExt).Debug("Could not extract episode from episode name")
-			if excludeUnparsed {
-				ignore = true
-			}
-			name = nameWithoutExt
-			episode = 1
-		}
-	}
+	name, season, episode, ignore = parseEpisodeName(ctx, nameWithoutExt, excludeUnparsed)
 	return
+}
+
+func parseEpisodeName(ctx context.Context, name string, excludeUnparsed bool) (string, int, int, bool) {
+	log := logger.FromContext(ctx)
+
+	if matches := tvShowRegex.FindStringSubmatch(name); len(matches) == 4 {
+		return extractNameAndEpisode(matches, 1, 2, 3)
+	}
+	log.With("name", name).Debug("Could not extract season and episode from episode name, trying fallback regex")
+
+	if matches := fallbackTvShowRegex.FindStringSubmatch(name); len(matches) == 4 {
+		return extractNameAndEpisode(matches, 1, 2, 3)
+	}
+	log.With("name", name).Debug("Could not extract season and episode from episode name")
+
+	if matches := episodeOnlyRegex.FindStringSubmatch(name); len(matches) == 3 {
+		return extractNameAndEpisode(matches, 1, 0, 2) // Season set to 1
+	}
+	log.With("name", name).Debug("Could not extract episode from episode name")
+
+	if excludeUnparsed {
+		return name, 0, 0, true
+	}
+	return name, 1, 1, false
+}
+
+func extractNameAndEpisode(matches []string, nameIndex, seasonIndex, episodeIndex int) (string, int, int, bool) {
+	name := strings.TrimSpace(matches[nameIndex])
+	season := 1
+	if seasonIndex != 0 {
+		season, _ = strconv.Atoi(matches[seasonIndex])
+	}
+	episode, _ := strconv.Atoi(matches[episodeIndex])
+	return name, season, episode, false
 }
 
 func sanitizeString(str string) string {
