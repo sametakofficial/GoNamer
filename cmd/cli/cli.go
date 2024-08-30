@@ -8,6 +8,7 @@ import (
 	"github.com/nouuu/gonamer/internal/mediadata"
 	"github.com/nouuu/gonamer/internal/mediarenamer"
 	"github.com/nouuu/gonamer/internal/mediascanner"
+	"github.com/nouuu/gonamer/pkg/logger"
 	"github.com/pterm/pterm"
 )
 
@@ -32,16 +33,26 @@ func NewCli(scanner mediascanner.MediaScanner, mediaRenamer *mediarenamer.MediaR
 }
 
 func (c *Cli) Run(ctx context.Context) {
+	log := logger.FromContext(ctx)
 
 	movies, err := c.ScanMovies(ctx)
 	if err != nil {
+		pterm.Error.Println(pterm.Error.Sprint("Error scanning movies: %v", err))
+		log.With("error", err).Error("Error scanning movies")
 		return
 	}
 	suggestions, err := c.FindSuggestions(ctx, movies)
 	if err != nil {
+		pterm.Error.Println(pterm.Error.Sprint("Error finding suggestions: %v", err))
+		log.With("error", err).Error("Error finding suggestions")
 		return
 	}
 	err = c.RenameMovies(ctx, suggestions)
+	if err != nil {
+		pterm.Error.Println(pterm.Error.Sprint("Error renaming movies: %v", err))
+		log.With("error", err).Error("Error renaming movies")
+		return
+	}
 
 }
 

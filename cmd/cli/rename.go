@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -42,4 +44,23 @@ func (c *Cli) RenameMovie(ctx context.Context, suggestion mediarenamer.MovieSugg
 		return err
 	}
 	return nil
+}
+
+func (c *Cli) RenameMovieFileManually(ctx context.Context, suggestion mediarenamer.MovieSuggestions) error {
+	pterm.Info.Println("Renaming manually for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
+	result, _ := pterm.DefaultInteractiveTextInput.
+		WithDefaultText("Enter new filename (without extension) :").
+		WithDefaultValue(fmt.Sprintf("%s (%d)", suggestion.Movie.Name, suggestion.Movie.Year)).
+		Show()
+
+	filename := fmt.Sprintf("%s.%s", result, suggestion.Movie.Extension)
+
+	pterm.Info.Println("Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(filename))
+
+	return c.mediaRenamer.RenameFile(
+		ctx,
+		suggestion.Movie.FullPath,
+		filepath.Join(filepath.Dir(suggestion.Movie.FullPath), filename),
+		c.Config.DryRun,
+	)
 }

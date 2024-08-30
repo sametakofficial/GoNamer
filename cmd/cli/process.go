@@ -12,10 +12,11 @@ func (c *Cli) ProcessMovieSuggestions(ctx context.Context, suggestion mediarenam
 	if len(suggestion.SuggestedMovies) == 1 {
 		if mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, suggestion.SuggestedMovies[0], suggestion.Movie) == suggestion.Movie.OriginalFilename {
 			pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
+			return nil
 		} else if c.Config.QuickMode {
 			pterm.Success.Println("Quick - Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, suggestion.SuggestedMovies[0], suggestion.Movie)))
+			return c.RenameMovie(ctx, suggestion, suggestion.SuggestedMovies[0])
 		}
-		return nil
 	}
 
 	return c.ProcessMovieSuggestionsOptions(ctx, suggestion)
@@ -31,28 +32,34 @@ func (c *Cli) ProcessMovieSuggestionsOptions(ctx context.Context, suggestion med
 		}
 		optionsArray = append(optionsArray, key)
 	}
-	options[fmt.Sprintf("%d. Skip", len(suggestion.SuggestedMovies)+1)] = func() error {
+
+	optionIndex := len(suggestion.SuggestedMovies) + 1
+
+	options[fmt.Sprintf("%d. Skip", optionIndex)] = func() error {
 		pterm.Info.Println("Skipping renaming of ", pterm.Yellow(suggestion.Movie.OriginalFilename))
 		return nil
 	}
-	optionsArray = append(optionsArray, fmt.Sprintf("%d. Skip", len(suggestion.SuggestedMovies)+1))
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Skip", optionIndex))
+	optionIndex++
 
-	options[fmt.Sprintf("%d. Search Manually", len(suggestion.SuggestedMovies)+2)] = func() error {
+	options[fmt.Sprintf("%d. Search Manually", optionIndex)] = func() error {
 		return c.SearchMovieSuggestionsManually(context.Background(), suggestion)
 	}
-	optionsArray = append(optionsArray, fmt.Sprintf("%d. Search Manually", len(suggestion.SuggestedMovies)+2))
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Search Manually", optionIndex))
+	optionIndex++
 
-	options[fmt.Sprintf("%d. Rename Manually", len(suggestion.SuggestedMovies)+3)] = func() error {
-		pterm.Info.Println("Renaming manually for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
-		return nil
+	options[fmt.Sprintf("%d. Rename Manually", optionIndex)] = func() error {
+		return c.RenameMovieFileManually(ctx, suggestion)
 	}
-	optionsArray = append(optionsArray, fmt.Sprintf("%d. Rename Manually", len(suggestion.SuggestedMovies)+3))
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Rename Manually", optionIndex))
+	optionIndex++
 
-	options[fmt.Sprintf("%d. Exit", len(suggestion.SuggestedMovies)+4)] = func() error {
+	options[fmt.Sprintf("%d. Exit", optionIndex)] = func() error {
 		c.Exit()
 		return nil
 	}
-	optionsArray = append(optionsArray, fmt.Sprintf("%d. Exit", len(suggestion.SuggestedMovies)+4))
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Exit", optionIndex))
+	optionIndex++
 
 	selected, err := pterm.DefaultInteractiveSelect.WithMaxHeight(10).WithOptions(optionsArray).Show()
 	if err != nil {

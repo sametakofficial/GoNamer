@@ -43,14 +43,19 @@ func (mr *MediaRenamer) FindSuggestions(ctx context.Context, movies []mediascann
 }
 
 func (mr *MediaRenamer) RenameMovie(ctx context.Context, fileMovie mediascanner.Movie, mediadataMovie mediadata.Movie, pattern string, dryrun bool) error {
-	log := logger.FromContext(ctx)
-	filename := GenerateMovieFilename(pattern, mediadataMovie, fileMovie)
 	// "{name} - {year}{extension}" <3
-	log.Infof("Renaming file %s -> %s", fileMovie.OriginalFilename, filename)
+	filename := GenerateMovieFilename(pattern, mediadataMovie, fileMovie)
+
+	return mr.RenameFile(ctx, fileMovie.FullPath, filepath.Join(filepath.Dir(fileMovie.FullPath), filename), dryrun)
+}
+
+func (mr *MediaRenamer) RenameFile(ctx context.Context, source, destination string, dryrun bool) error {
+	log := logger.FromContext(ctx)
+	log.Infof("Renaming file %s -> %s", source, destination)
 	if dryrun {
 		return nil
 	}
-	err := os.Rename(fileMovie.FullPath, filepath.Join(filepath.Dir(fileMovie.FullPath), filename))
+	err := os.Rename(source, destination)
 	if err != nil {
 		log.With("error", err).Error("Error renaming file")
 		return err
