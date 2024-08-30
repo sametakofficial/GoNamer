@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/nouuu/mediatracker/internal/mediadata"
-	"github.com/nouuu/mediatracker/internal/mediascanner"
+	"github.com/nouuu/gonamer/internal/mediadata"
+	"github.com/nouuu/gonamer/internal/mediascanner"
 )
 
 type Field string

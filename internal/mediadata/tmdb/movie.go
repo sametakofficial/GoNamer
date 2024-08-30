@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
-	"github.com/nouuu/mediatracker/internal/mediadata"
+	"github.com/nouuu/gonamer/internal/mediadata"
 )
 
 func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, error) {

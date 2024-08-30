@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 
-	"github.com/nouuu/mediatracker/internal/mediascanner"
-	"github.com/nouuu/mediatracker/internal/mediascanner/filescanner"
-	"github.com/nouuu/mediatracker/pkg/logger"
+	"github.com/nouuu/gonamer/internal/mediascanner"
+	"github.com/nouuu/gonamer/internal/mediascanner/filescanner"
+	"github.com/nouuu/gonamer/pkg/logger"
 	"go.uber.org/zap/zapcore"
 )
 

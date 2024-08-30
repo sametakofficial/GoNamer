@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nouuu/mediatracker/internal/mediadata"
-	"github.com/nouuu/mediatracker/internal/mediascanner"
-	"github.com/nouuu/mediatracker/pkg/logger"
+	"github.com/nouuu/gonamer/internal/mediadata"
+	"github.com/nouuu/gonamer/internal/mediascanner"
+	"github.com/nouuu/gonamer/pkg/logger"
 	"go.uber.org/zap"
 )
 
