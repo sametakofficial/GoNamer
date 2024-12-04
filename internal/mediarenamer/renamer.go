@@ -1,6 +1,7 @@
 package mediarenamer
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -11,10 +12,13 @@ import (
 type Field string
 
 const (
-	FieldName Field = "{name}"
-	FieldYear Field = "{year}"
-	FieldDate Field = "{date}"
-	FieldExt  Field = "{extension}"
+	FieldName         Field = "{name}"
+	FieldYear         Field = "{year}"
+	FieldDate         Field = "{date}"
+	FieldExt          Field = "{extension}"
+	FieldSeason       Field = "{season}"
+	FieldEpisode      Field = "{episode}"
+	FieldEpisodeTitle Field = "{episode_title}"
 )
 
 func GenerateMovieFilename(pattern string, movie mediadata.Movie, fileMovie mediascanner.Movie) string {
@@ -24,6 +28,17 @@ func GenerateMovieFilename(pattern string, movie mediadata.Movie, fileMovie medi
 	filename = replaceField(filename, FieldYear, movie.Year)
 	filename = replaceField(filename, FieldDate, movie.ReleaseDate)
 	filename = replaceField(filename, FieldExt, fileMovie.Extension)
+	return filename
+}
+
+func GenerateEpisodeFilename(pattern string, show mediadata.TvShow, episode mediadata.Episode, fileEpisode mediascanner.Episode) string {
+	filename := pattern
+	filename = replaceField(filename, FieldName, show.Title)
+	filename = replaceField(filename, FieldYear, show.Year)
+	filename = replaceFieldInt(filename, FieldSeason, episode.SeasonNumber)
+	filename = replaceFieldInt(filename, FieldEpisode, episode.EpisodeNumber)
+	filename = replaceField(filename, FieldEpisodeTitle, episode.Name)
+	filename = replaceField(filename, FieldExt, fileEpisode.Extension)
 	return filename
 }
 
@@ -38,4 +53,8 @@ func generateDefaultMovieFilename(fileMovie mediascanner.Movie) string {
 
 func replaceField(pattern string, field Field, value string) string {
 	return strings.ReplaceAll(pattern, string(field), value)
+}
+
+func replaceFieldInt(pattern string, field Field, value int) string {
+	return strings.ReplaceAll(pattern, string(field), fmt.Sprintf("%02d", value))
 }

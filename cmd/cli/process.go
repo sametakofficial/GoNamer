@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/nouuu/gonamer/internal/mediadata"
 	"github.com/nouuu/gonamer/internal/mediarenamer"
 	"github.com/pterm/pterm"
 )
@@ -86,4 +87,95 @@ func (c *Cli) SearchMovieSuggestionsManually(ctx context.Context, suggestions me
 		suggestions.SuggestedMovies = suggestions.SuggestedMovies[:c.Config.MaxResults]
 	}
 	return c.ProcessMovieSuggestionsOptions(ctx, suggestions)
+}
+
+func (c *Cli) ProcessTvEpisodeSuggestions(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions) error {
+	if len(suggestion.SuggestedEpisodes) == 1 {
+		if mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, suggestion.SuggestedEpisodes[0].TvShow, suggestion.SuggestedEpisodes[0].Episode, suggestion.Episode) == suggestion.Episode.OriginalFilename {
+			pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Episode.OriginalFilename))
+			return nil
+		} else if c.Config.QuickMode {
+			pterm.Success.Println("Quick - Renaming episode ", pterm.Yellow(suggestion.Episode.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, suggestion.SuggestedEpisodes[0].TvShow, suggestion.SuggestedEpisodes[0].Episode, suggestion.Episode)))
+			return c.RenameTvEpisode(ctx, suggestion, suggestion.SuggestedEpisodes[0].TvShow, suggestion.SuggestedEpisodes[0].Episode)
+		}
+	}
+
+	return c.ProcessTvEpisodeSuggestionsOptions(ctx, suggestion)
+}
+
+func (c *Cli) ProcessTvEpisodeSuggestionsOptions(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions) error {
+	options := make(map[string]func() error)
+	optionsArray := make([]string, 0)
+	for i, episode := range suggestion.SuggestedEpisodes {
+		key := fmt.Sprintf("%d. %s - %dx%02d - %s", i+1, episode.TvShow.Title, episode.Episode.SeasonNumber, episode.Episode.EpisodeNumber, episode.Episode.Name)
+		options[key] = func() error {
+			return c.RenameTvEpisode(ctx, suggestion, episode.TvShow, episode.Episode)
+		}
+		optionsArray = append(optionsArray, key)
+	}
+
+	optionIndex := len(suggestion.SuggestedEpisodes) + 1
+
+	options[fmt.Sprintf("%d. Skip", optionIndex)] = func() error {
+		pterm.Info.Println("Skipping renaming of ", pterm.Yellow(suggestion.Episode.OriginalFilename))
+		return nil
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Skip", optionIndex))
+	optionIndex++
+
+	options[fmt.Sprintf("%d. Search Manually", optionIndex)] = func() error {
+		return c.SearchTvEpisodeSuggestionsManually(context.Background(), suggestion)
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Search Manually", optionIndex))
+	optionIndex++
+
+	options[fmt.Sprintf("%d. Rename Manually", optionIndex)] = func() error {
+		return c.RenameEpisodeFileManually(ctx, suggestion)
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Rename Manually", optionIndex))
+	optionIndex++
+
+	options[fmt.Sprintf("%d. Exit", optionIndex)] = func() error {
+		c.Exit()
+		return nil
+	}
+	optionsArray = append(optionsArray, fmt.Sprintf("%d. Exit", optionIndex))
+	optionIndex++
+
+	selected, err := pterm.DefaultInteractiveSelect.WithMaxHeight(10).WithOptions(optionsArray).Show()
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error selecting episode: %v", err))
+		return err
+	}
+
+	return options[selected]()
+}
+
+func (c *Cli) SearchTvEpisodeSuggestionsManually(ctx context.Context, suggestions mediarenamer.EpisodeSuggestions) error {
+	query, err := pterm.DefaultInteractiveTextInput.WithDefaultValue(fmt.Sprintf("%s", suggestions.Episode.Name)).Show(pterm.Sprintf("Search for '%s'", suggestions.Episode.OriginalFilename))
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error getting search query: %v", err))
+	}
+
+	tvShows, err := c.tvClient.SearchTvShow(query, 0, 1)
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error searching tvShows: %v", err))
+		return err
+	}
+
+	suggestions.SuggestedEpisodes = make([]struct {
+		TvShow  mediadata.TvShow
+		Episode mediadata.Episode
+	}, 0, len(tvShows.TvShows))
+	for _, tvShow := range tvShows.TvShows {
+		episodes, err := c.tvClient.GetEpisode(tvShow.ID, suggestions.Episode.Season, suggestions.Episode.Episode)
+		if err != nil {
+			pterm.Error.Println(pterm.Sprintf("Error getting episode: %v", err))
+		}
+		suggestions.SuggestedEpisodes = append(suggestions.SuggestedEpisodes, struct {
+			TvShow  mediadata.TvShow
+			Episode mediadata.Episode
+		}{TvShow: tvShow, Episode: episodes})
+	}
+	return c.ProcessTvEpisodeSuggestionsOptions(ctx, suggestions)
 }

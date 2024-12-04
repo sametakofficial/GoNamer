@@ -74,6 +74,48 @@ func (t *tmdbClient) GetTvShowDetails(id string) (mediadata.TvShowDetails, error
 	return buildTvShowDetails(tvShowDetails), nil
 }
 
+func (t *tmdbClient) GetEpisode(id string, seasonNumber int, episodeNumber int) (mediadata.Episode, error) {
+	var idInt int
+	idInt, err := strconv.Atoi(id)
+	if err != nil {
+		return mediadata.Episode{}, err
+	}
+	episode, err := t.client.GetTVEpisodeDetails(
+		idInt,
+		seasonNumber,
+		episodeNumber,
+		cfgMap(t.opts),
+	)
+	if err != nil {
+		return mediadata.Episode{}, err
+	}
+	return buildEpisode(struct {
+		AirDate        string  `json:"air_date"`
+		EpisodeNumber  int     `json:"episode_number"`
+		ID             int64   `json:"id"`
+		Name           string  `json:"name"`
+		Overview       string  `json:"overview"`
+		ProductionCode string  `json:"production_code"`
+		SeasonNumber   int     `json:"season_number"`
+		ShowID         int64   `json:"show_id"`
+		StillPath      string  `json:"still_path"`
+		VoteAverage    float32 `json:"vote_average"`
+		VoteCount      int64   `json:"vote_count"`
+	}{
+		AirDate:        episode.AirDate,
+		EpisodeNumber:  episode.EpisodeNumber,
+		ID:             episode.ID,
+		Name:           episode.Name,
+		Overview:       episode.Overview,
+		ProductionCode: episode.ProductionCode,
+		SeasonNumber:   episode.SeasonNumber,
+		ShowID:         int64(idInt),
+		StillPath:      episode.StillPath,
+		VoteAverage:    episode.VoteAverage,
+		VoteCount:      episode.VoteCount,
+	}), nil
+}
+
 func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
 	releaseYear := ""
 	if len(tvShow.FirstAirDate) >= 4 {

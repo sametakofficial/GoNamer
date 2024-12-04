@@ -64,3 +64,56 @@ func (c *Cli) RenameMovieFileManually(ctx context.Context, suggestion mediarenam
 		c.Config.DryRun,
 	)
 }
+
+func (c *Cli) RenameTvEpisodes(ctx context.Context, suggestions []mediarenamer.EpisodeSuggestions) error {
+	slices.SortFunc(suggestions, func(i, j mediarenamer.EpisodeSuggestions) int {
+		return strings.Compare(i.Episode.OriginalFilename, j.Episode.OriginalFilename)
+	})
+
+	pb, _ := pterm.DefaultProgressbar.WithTotal(len(suggestions)).WithTitle("Renaming TV episodes...").Start()
+	for _, suggestion := range suggestions {
+		pterm.Print("\n")
+		pb.UpdateTitle("Renaming " + suggestion.Episode.OriginalFilename)
+		pb.Increment()
+		pb, _ = pb.Stop()
+
+		err := c.ProcessTvEpisodeSuggestions(ctx, suggestion)
+		if err != nil {
+			return err
+		}
+
+		pb, _ = pb.Start()
+	}
+	pb.Stop()
+	pterm.Success.Println("Finished renaming TV episodes")
+	return nil
+}
+
+func (c *Cli) RenameTvEpisode(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions, tvShow mediadata.TvShow, episode mediadata.Episode) error {
+	pterm.Info.Println("Renaming episode ", pterm.Yellow(suggestion.Episode.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, tvShow, episode, suggestion.Episode)))
+	err := c.mediaRenamer.RenameEpisode(ctx, suggestion.Episode, tvShow, episode, c.Config.TvShowPattern, c.Config.DryRun)
+	if err != nil {
+		pterm.Error.Println(pterm.Sprintf("Error renaming episode: %v", err))
+		return err
+	}
+	return nil
+}
+
+func (c *Cli) RenameEpisodeFileManually(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions) error {
+	pterm.Info.Println("Renaming manually for ", pterm.Yellow(suggestion.Episode.OriginalFilename))
+	result, _ := pterm.DefaultInteractiveTextInput.
+		WithDefaultText("Enter new filename (without extension) :").
+		WithDefaultValue(fmt.Sprintf("%s - %dx%02d", suggestion.Episode.Name, suggestion.Episode.Season, suggestion.Episode.Episode)).
+		Show()
+
+	filename := fmt.Sprintf("%s.%s", result, suggestion.Episode.Extension)
+
+	pterm.Info.Println("Renaming episode ", pterm.Yellow(suggestion.Episode.OriginalFilename), "to", pterm.Yellow(filename))
+
+	return c.mediaRenamer.RenameFile(
+		ctx,
+		suggestion.Episode.FullPath,
+		filepath.Join(filepath.Dir(suggestion.Episode.FullPath), filename),
+		c.Config.DryRun,
+	)
+}

@@ -115,6 +115,7 @@ type TvShowClient interface {
 	SearchTvShow(query string, year int, page int) (TvShowResults, error)
 	GetTvShow(id string) (TvShow, error)
 	GetTvShowDetails(id string) (TvShowDetails, error)
+	GetEpisode(id string, seasonNumber int, episodeNumber int) (Episode, error)
 }
 
 func ShowMovieResults(movies MovieResults) {

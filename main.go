@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/nouuu/gonamer/internal/mediascanner"
 	"github.com/nouuu/gonamer/internal/mediascanner/filescanner"
@@ -22,6 +23,13 @@ func main() {
 	//}
 	//mediaRenamer := mediarenamer.NewMediaRenamer(movieClient)
 
-	scanner.ScanEpisodes(ctx, "/mnt/nfs/Download/direct_download/tv", mediascanner.ScanEpisodesOptions{Recursively: true})
+	episodes, err := scanner.ScanEpisodes(ctx, "/mnt/nfs/Media/TV", mediascanner.ScanEpisodesOptions{Recursively: true})
+
+	if err != nil {
+		logger.FromContext(ctx).Errorf("Error scanning episodes: %v", err)
+	}
+	for _, episode := range episodes {
+		fmt.Printf("Episode: %s %dx%02d\n", episode.Name, episode.Season, episode.Episode)
+	}
 
 }

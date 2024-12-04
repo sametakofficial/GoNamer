@@ -12,6 +12,7 @@ import (
 	"github.com/nouuu/gonamer/internal/mediascanner/filescanner"
 	"github.com/nouuu/gonamer/pkg/logger"
 	"github.com/pterm/pterm"
+	"github.com/rosedblabs/rosedb/v2"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -34,6 +35,17 @@ func initLogger() {
 	logger.SetLoggerOutput(zapcore.WriteSyncer(logfile))
 }
 
+func initCache() (*rosedb.DB, error) {
+	options := rosedb.DefaultOptions
+	options.DirPath = "/tmp/rosedb_basic"
+
+	db, err := rosedb.Open(options)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
 func startCli(ctx context.Context) {
 	log := logger.FromContext(ctx)
 
@@ -50,10 +62,15 @@ func startCli(ctx context.Context) {
 		pterm.Error.Println(pterm.Error.Sprint("Error creating movie client: %v", err))
 		log.Fatalf("Error creating movie client: %v", err)
 	}
+	tvShowClient, err := tmdb.NewTvShowClient(config.TMDBAPIKey, tmdb.WithLang("fr-FR"))
+	if err != nil {
+		pterm.Error.Println(pterm.Error.Sprint("Error creating tv show client: %v", err))
+		log.Fatalf("Error creating tv show client: %v", err)
+	}
 
-	mediaRenamer := mediarenamer.NewMediaRenamer(movieClient)
+	mediaRenamer := mediarenamer.NewMediaRenamer(movieClient, tvShowClient)
 
-	newCli := cli.NewCli(scanner, mediaRenamer, movieClient)
+	newCli := cli.NewCli(scanner, mediaRenamer, movieClient, tvShowClient)
 
 	newCli.Run(ctx)
 }
