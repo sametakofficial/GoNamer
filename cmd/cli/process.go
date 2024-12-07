@@ -9,18 +9,82 @@ import (
 	"github.com/pterm/pterm"
 )
 
-func (c *Cli) ProcessMovieSuggestions(ctx context.Context, suggestion mediarenamer.MovieSuggestions) error {
-	if len(suggestion.SuggestedMovies) == 1 {
-		if mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, suggestion.SuggestedMovies[0], suggestion.Movie) == suggestion.Movie.OriginalFilename {
-			pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
-			return nil
-		} else if c.Config.QuickMode {
-			pterm.Success.Println("Quick - Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, suggestion.SuggestedMovies[0], suggestion.Movie)))
-			return c.RenameMovie(ctx, suggestion, suggestion.SuggestedMovies[0])
-		}
+type MediaSuggestion interface {
+	GetOriginalFilename() string
+	GenerateFilename(pattern string) string
+	HasSingleSuggestion() bool
+}
+
+// MovieSuggestionWrapper implémente MediaSuggestion pour les films
+type MovieSuggestionWrapper struct {
+	suggestion mediarenamer.MovieSuggestions
+	pattern    string
+}
+
+func (m MovieSuggestionWrapper) GetOriginalFilename() string {
+	return m.suggestion.Movie.OriginalFilename
+}
+
+func (m MovieSuggestionWrapper) GenerateFilename(pattern string) string {
+	if len(m.suggestion.SuggestedMovies) == 0 {
+		return ""
+	}
+	return mediarenamer.GenerateMovieFilename(pattern, m.suggestion.SuggestedMovies[0], m.suggestion.Movie)
+}
+
+func (m MovieSuggestionWrapper) HasSingleSuggestion() bool {
+	return len(m.suggestion.SuggestedMovies) == 1
+}
+
+type EpisodeSuggestionWrapper struct {
+	suggestion mediarenamer.EpisodeSuggestions
+	pattern    string
+}
+
+func (e EpisodeSuggestionWrapper) GetOriginalFilename() string {
+	return e.suggestion.Episode.OriginalFilename
+}
+
+func (e EpisodeSuggestionWrapper) GenerateFilename(pattern string) string {
+	if len(e.suggestion.SuggestedEpisodes) == 0 {
+		return ""
+	}
+	return mediarenamer.GenerateEpisodeFilename(
+		pattern,
+		e.suggestion.SuggestedEpisodes[0].TvShow,
+		e.suggestion.SuggestedEpisodes[0].Episode,
+		e.suggestion.Episode,
+	)
+}
+
+func (e EpisodeSuggestionWrapper) HasSingleSuggestion() bool {
+	return len(e.suggestion.SuggestedEpisodes) == 1
+}
+
+func (c *Cli) processSuggestion(_ context.Context, suggestion MediaSuggestion, pattern string, processFunc func() error) error {
+	if !suggestion.HasSingleSuggestion() {
+		return processFunc()
 	}
 
-	return c.ProcessMovieSuggestionsOptions(ctx, suggestion)
+	newFilename := suggestion.GenerateFilename(pattern)
+	if newFilename == suggestion.GetOriginalFilename() {
+		pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.GetOriginalFilename()))
+		return nil
+	}
+
+	if c.Config.QuickMode {
+		pterm.Success.Println("Quick - Renaming file ", pterm.Yellow(suggestion.GetOriginalFilename()), "to", pterm.Yellow(newFilename))
+		return processFunc()
+	}
+
+	return processFunc()
+}
+
+func (c *Cli) ProcessMovieSuggestions(ctx context.Context, suggestion mediarenamer.MovieSuggestions) error {
+	wrapper := MovieSuggestionWrapper{suggestion: suggestion, pattern: c.Config.MoviePattern}
+	return c.processSuggestion(ctx, wrapper, c.Config.MoviePattern, func() error {
+		return c.ProcessMovieSuggestionsOptions(ctx, suggestion)
+	})
 }
 
 func (c *Cli) ProcessMovieSuggestionsOptions(ctx context.Context, suggestion mediarenamer.MovieSuggestions) error {
@@ -90,17 +154,10 @@ func (c *Cli) SearchMovieSuggestionsManually(ctx context.Context, suggestions me
 }
 
 func (c *Cli) ProcessTvEpisodeSuggestions(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions) error {
-	if len(suggestion.SuggestedEpisodes) == 1 {
-		if mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, suggestion.SuggestedEpisodes[0].TvShow, suggestion.SuggestedEpisodes[0].Episode, suggestion.Episode) == suggestion.Episode.OriginalFilename {
-			pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Episode.OriginalFilename))
-			return nil
-		} else if c.Config.QuickMode {
-			pterm.Success.Println("Quick - Renaming episode ", pterm.Yellow(suggestion.Episode.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, suggestion.SuggestedEpisodes[0].TvShow, suggestion.SuggestedEpisodes[0].Episode, suggestion.Episode)))
-			return c.RenameTvEpisode(ctx, suggestion, suggestion.SuggestedEpisodes[0].TvShow, suggestion.SuggestedEpisodes[0].Episode)
-		}
-	}
-
-	return c.ProcessTvEpisodeSuggestionsOptions(ctx, suggestion)
+	wrapper := EpisodeSuggestionWrapper{suggestion: suggestion, pattern: c.Config.TvShowPattern}
+	return c.processSuggestion(ctx, wrapper, c.Config.TvShowPattern, func() error {
+		return c.ProcessTvEpisodeSuggestionsOptions(ctx, suggestion)
+	})
 }
 
 func (c *Cli) ProcessTvEpisodeSuggestionsOptions(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions) error {
