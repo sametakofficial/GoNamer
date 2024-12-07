@@ -12,7 +12,6 @@ import (
 	"github.com/nouuu/gonamer/internal/mediascanner/filescanner"
 	"github.com/nouuu/gonamer/pkg/logger"
 	"github.com/pterm/pterm"
-	"github.com/rosedblabs/rosedb/v2"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -33,17 +32,6 @@ func initLogger() {
 	}
 
 	logger.SetLoggerOutput(zapcore.WriteSyncer(logfile))
-}
-
-func initCache() (*rosedb.DB, error) {
-	options := rosedb.DefaultOptions
-	options.DirPath = "/tmp/rosedb_basic"
-
-	db, err := rosedb.Open(options)
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
 }
 
 func startCli(ctx context.Context) {
