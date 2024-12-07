@@ -1,6 +1,7 @@
 package mediadata
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -15,107 +16,107 @@ const (
 )
 
 type Genre struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Person struct {
-	ID         string
-	Name       string
-	Character  string
-	ProfileURL string
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Character  string `json:"character"`
+	ProfileURL string `json:"profile_url"`
 }
 
 type Studio struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Movie struct {
-	ID          string
-	Title       string
-	Overview    string
-	ReleaseDate string
-	Year        string
-	PosterURL   string
-	Rating      float32
-	RatingCount int64
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Overview    string  `json:"overview"`
+	ReleaseDate string  `json:"release_date"`
+	Year        string  `json:"year"`
+	PosterURL   string  `json:"poster_url"`
+	Rating      float32 `json:"rating"`
+	RatingCount int64   `json:"rating_count"`
 }
 
 type MovieDetails struct {
 	Movie
-	Runtime int
-	Genres  []Genre
-	Cast    []Person
-	Studio  []Studio
+	Runtime int      `json:"runtime"`
+	Genres  []Genre  `json:"genres"`
+	Cast    []Person `json:"cast"`
+	Studio  []Studio `json:"studio"`
 }
 
 type MovieResults struct {
-	Movies         []Movie
-	Totals         int64
-	ResultsPerPage int64
+	Movies         []Movie `json:"movies"`
+	Totals         int64   `json:"totals"`
+	ResultsPerPage int64   `json:"results_per_page"`
 }
 
 type Season struct {
-	SeasonNumber int
-	EpisodeCount int
-	AirDate      string
-	PosterURL    string
+	SeasonNumber int    `json:"season_number"`
+	EpisodeCount int    `json:"episode_count"`
+	AirDate      string `json:"air_date"`
+	PosterURL    string `json:"poster_url"`
 }
 
 type Episode struct {
-	ID            string
-	AirDate       string
-	EpisodeNumber int
-	SeasonNumber  int
-	Name          string
-	Overview      string
-	StillURL      string
-	VoteAverage   float32
-	VoteCount     int64
+	ID            string  `json:"id"`
+	AirDate       string  `json:"air_date"`
+	EpisodeNumber int     `json:"episode_number"`
+	SeasonNumber  int     `json:"season_number"`
+	Name          string  `json:"name"`
+	Overview      string  `json:"overview"`
+	StillURL      string  `json:"still_url"`
+	VoteAverage   float32 `json:"vote_average"`
+	VoteCount     int64   `json:"vote_count"`
 }
 
 type TvShow struct {
-	ID          string
-	Title       string
-	Overview    string
-	FistAirDate string
-	Year        string
-	PosterURL   string
-	Rating      float32
-	RatingCount int64
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Overview    string  `json:"overview"`
+	FistAirDate string  `json:"first_air_date"`
+	Year        string  `json:"year"`
+	PosterURL   string  `json:"poster_url"`
+	Rating      float32 `json:"rating"`
+	RatingCount int64   `json:"rating_count"`
 }
 
 type TvShowDetails struct {
 	TvShow
-	SeasonCount  int
-	EpisodeCount int
-	LastEpisode  Episode
-	NextEpisode  Episode
-	Status       Status
-	Seasons      []Season
-	Genres       []Genre
-	Cast         []Person
-	Studio       []Studio
+	SeasonCount  int      `json:"season_count"`
+	EpisodeCount int      `json:"episode_count"`
+	LastEpisode  Episode  `json:"last_episode"`
+	NextEpisode  Episode  `json:"next_episode"`
+	Status       Status   `json:"status"`
+	Seasons      []Season `json:"seasons"`
+	Genres       []Genre  `json:"genres"`
+	Cast         []Person `json:"cast"`
+	Studio       []Studio `json:"studio"`
 }
 
 type TvShowResults struct {
-	TvShows        []TvShow
-	Totals         int64
-	ResultsPerPage int64
+	TvShows        []TvShow `json:"tv_shows"`
+	Totals         int64    `json:"totals"`
+	ResultsPerPage int64    `json:"results_per_page"`
 }
 
 type MovieClient interface {
-	SearchMovie(query string, year int, page int) (MovieResults, error)
-	GetMovie(id string) (Movie, error)
-	GetMovieDetails(id string) (MovieDetails, error)
+	SearchMovie(ctx context.Context, query string, year int, page int) (MovieResults, error)
+	GetMovie(ctx context.Context, id string) (Movie, error)
+	GetMovieDetails(ctx context.Context, id string) (MovieDetails, error)
 }
 
 type TvShowClient interface {
-	SearchTvShow(query string, year int, page int) (TvShowResults, error)
-	GetTvShow(id string) (TvShow, error)
-	GetTvShowDetails(id string) (TvShowDetails, error)
-	GetEpisode(id string, seasonNumber int, episodeNumber int) (Episode, error)
+	SearchTvShow(ctx context.Context, query string, year int, page int) (TvShowResults, error)
+	GetTvShow(ctx context.Context, id string) (TvShow, error)
+	GetTvShowDetails(ctx context.Context, id string) (TvShowDetails, error)
+	GetEpisode(ctx context.Context, id string, seasonNumber int, episodeNumber int) (Episode, error)
 }
 
 func ShowMovieResults(movies MovieResults) {

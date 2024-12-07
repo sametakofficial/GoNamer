@@ -96,7 +96,7 @@ func (mr *MediaRenamer) SuggestMovies(ctx context.Context, movie mediascanner.Mo
 	log := logger.FromContext(ctx).With("movie", movie)
 	suggestions.Movie = movie
 	maxResults = int(math.Max(math.Min(float64(maxResults), 100), 1))
-	movies, err := mr.movieClient.SearchMovie(movie.Name, movie.Year, 1)
+	movies, err := mr.movieClient.SearchMovie(ctx, movie.Name, movie.Year, 1)
 	if err != nil {
 		log.With("error", err).Error("Error searching movie")
 		return
@@ -118,7 +118,7 @@ func (mr *MediaRenamer) SuggestEpisodes(ctx context.Context, episode mediascanne
 	log := logger.FromContext(ctx).With("episode", episode)
 	suggestions.Episode = episode
 	maxResults = int(math.Max(math.Min(float64(maxResults), 100), 1))
-	tvShow, err := mr.tvShowClient.SearchTvShow(episode.Name, 0, 1)
+	tvShow, err := mr.tvShowClient.SearchTvShow(ctx, episode.Name, 0, 1)
 	if err != nil {
 		log.With("error", err).Error("Error searching tv show")
 		return
@@ -128,8 +128,8 @@ func (mr *MediaRenamer) SuggestEpisodes(ctx context.Context, episode mediascanne
 		err = errors.New("no tv show found")
 		return
 	}
-	for _, tvShow := range tvShow.TvShows { // TODO implement GetSeasonEpisodes and put answer in cache to avoid multiple requests
-		episodes, err := mr.tvShowClient.GetEpisode(tvShow.ID, episode.Season, episode.Episode)
+	for _, tvShow := range tvShow.TvShows {
+		episodes, err := mr.tvShowClient.GetEpisode(ctx, tvShow.ID, episode.Season, episode.Episode)
 		if err != nil {
 			log.With("error", err).Error("Error getting episode")
 		}

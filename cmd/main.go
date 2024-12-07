@@ -7,6 +7,7 @@ import (
 
 	"github.com/nouuu/gonamer/cmd/cli"
 	"github.com/nouuu/gonamer/conf"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata/tmdb"
 	"github.com/nouuu/gonamer/internal/mediarenamer"
 	"github.com/nouuu/gonamer/internal/mediascanner/filescanner"
@@ -44,13 +45,19 @@ func startCli(ctx context.Context) {
 
 	config := conf.LoadConfig()
 
+	cacheClient, err := cache.NewGoCache()
+	if err != nil {
+		pterm.Error.Println(pterm.Error.Sprint("Error creating cache client: %v", err))
+		log.Fatalf("Error creating cache client: %v", err)
+	}
+
 	scanner := filescanner.New()
-	movieClient, err := tmdb.NewMovieClient(config.TMDBAPIKey, tmdb.WithLang("fr-FR"))
+	movieClient, err := tmdb.NewMovieClient(config.TMDBAPIKey, cacheClient, tmdb.WithLang("fr-FR"))
 	if err != nil {
 		pterm.Error.Println(pterm.Error.Sprint("Error creating movie client: %v", err))
 		log.Fatalf("Error creating movie client: %v", err)
 	}
-	tvShowClient, err := tmdb.NewTvShowClient(config.TMDBAPIKey, tmdb.WithLang("fr-FR"))
+	tvShowClient, err := tmdb.NewTvShowClient(config.TMDBAPIKey, cacheClient, tmdb.WithLang("fr-FR"))
 	if err != nil {
 		pterm.Error.Println(pterm.Error.Sprint("Error creating tv show client: %v", err))
 		log.Fatalf("Error creating tv show client: %v", err)

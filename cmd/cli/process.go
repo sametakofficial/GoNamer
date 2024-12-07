@@ -77,7 +77,7 @@ func (c *Cli) SearchMovieSuggestionsManually(ctx context.Context, suggestions me
 		pterm.Error.Println(pterm.Sprintf("Error getting search query: %v", err))
 	}
 
-	movies, err := c.movieClient.SearchMovie(query, 0, 1)
+	movies, err := c.movieClient.SearchMovie(ctx, query, 0, 1)
 	if err != nil {
 		pterm.Error.Println(pterm.Sprintf("Error searching movie: %v", err))
 		return err
@@ -157,7 +157,7 @@ func (c *Cli) SearchTvEpisodeSuggestionsManually(ctx context.Context, suggestion
 		pterm.Error.Println(pterm.Sprintf("Error getting search query: %v", err))
 	}
 
-	tvShows, err := c.tvClient.SearchTvShow(query, 0, 1)
+	tvShows, err := c.tvClient.SearchTvShow(ctx, query, 0, 1)
 	if err != nil {
 		pterm.Error.Println(pterm.Sprintf("Error searching tvShows: %v", err))
 		return err
@@ -168,7 +168,7 @@ func (c *Cli) SearchTvEpisodeSuggestionsManually(ctx context.Context, suggestion
 		Episode mediadata.Episode
 	}, 0, len(tvShows.TvShows))
 	for _, tvShow := range tvShows.TvShows {
-		episodes, err := c.tvClient.GetEpisode(tvShow.ID, suggestions.Episode.Season, suggestions.Episode.Episode)
+		episodes, err := c.tvClient.GetEpisode(ctx, tvShow.ID, suggestions.Episode.Season, suggestions.Episode.Episode)
 		if err != nil {
 			pterm.Error.Println(pterm.Sprintf("Error getting episode: %v", err))
 		}

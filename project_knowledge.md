@@ -265,7 +265,7 @@ func (c *Cli) SearchMovieSuggestionsManually(ctx context.Context, suggestions me
 		pterm.Error.Println(pterm.Sprintf("Error getting search query: %v", err))
 	}
 
-	movies, err := c.movieClient.SearchMovie(query, 0, 1)
+	movies, err := c.movieClient.SearchMovie(ctx, query, 0, 1)
 	if err != nil {
 		pterm.Error.Println(pterm.Sprintf("Error searching movie: %v", err))
 		return err
@@ -345,7 +345,7 @@ func (c *Cli) SearchTvEpisodeSuggestionsManually(ctx context.Context, suggestion
 		pterm.Error.Println(pterm.Sprintf("Error getting search query: %v", err))
 	}
 
-	tvShows, err := c.tvClient.SearchTvShow(query, 0, 1)
+	tvShows, err := c.tvClient.SearchTvShow(ctx, query, 0, 1)
 	if err != nil {
 		pterm.Error.Println(pterm.Sprintf("Error searching tvShows: %v", err))
 		return err
@@ -356,7 +356,7 @@ func (c *Cli) SearchTvEpisodeSuggestionsManually(ctx context.Context, suggestion
 		Episode mediadata.Episode
 	}, 0, len(tvShows.TvShows))
 	for _, tvShow := range tvShows.TvShows {
-		episodes, err := c.tvClient.GetEpisode(tvShow.ID, suggestions.Episode.Season, suggestions.Episode.Episode)
+		episodes, err := c.tvClient.GetEpisode(ctx, tvShow.ID, suggestions.Episode.Season, suggestions.Episode.Episode)
 		if err != nil {
 			pterm.Error.Println(pterm.Sprintf("Error getting episode: %v", err))
 		}
@@ -619,6 +619,7 @@ import (
 
 	"github.com/nouuu/gonamer/cmd/cli"
 	"github.com/nouuu/gonamer/conf"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata/tmdb"
 	"github.com/nouuu/gonamer/internal/mediarenamer"
 	"github.com/nouuu/gonamer/internal/mediascanner/filescanner"
@@ -656,13 +657,19 @@ func startCli(ctx context.Context) {
 
 	config := conf.LoadConfig()
 
+	cacheClient, err := cache.NewGoCache()
+	if err != nil {
+		pterm.Error.Println(pterm.Error.Sprint("Error creating cache client: %v", err))
+		log.Fatalf("Error creating cache client: %v", err)
+	}
+
 	scanner := filescanner.New()
-	movieClient, err := tmdb.NewMovieClient(config.TMDBAPIKey, tmdb.WithLang("fr-FR"))
+	movieClient, err := tmdb.NewMovieClient(config.TMDBAPIKey, cacheClient, tmdb.WithLang("fr-FR"))
 	if err != nil {
 		pterm.Error.Println(pterm.Error.Sprint("Error creating movie client: %v", err))
 		log.Fatalf("Error creating movie client: %v", err)
 	}
-	tvShowClient, err := tmdb.NewTvShowClient(config.TMDBAPIKey, tmdb.WithLang("fr-FR"))
+	tvShowClient, err := tmdb.NewTvShowClient(config.TMDBAPIKey, cacheClient, tmdb.WithLang("fr-FR"))
 	if err != nil {
 		pterm.Error.Println(pterm.Error.Sprint("Error creating tv show client: %v", err))
 		log.Fatalf("Error creating tv show client: %v", err)
@@ -785,19 +792,53 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/dgraph-io/ristretto"
 	"github.com/eko/gocache/lib/v4/store"
+	"github.com/nouuu/gonamer/internal/mediadata"
 
 	"github.com/eko/gocache/lib/v4/cache"
 	"github.com/eko/gocache/lib/v4/marshaler"
 	ristrettoStore "github.com/eko/gocache/store/ristretto/v4"
 )
 
+const (
+	movieSearchKey    = "search:movie:%s:year:%d:page:%d"
+	tvShowSearchKey   = "search:tvshow:%s:year:%d:page:%d"
+	movieKey          = "movie:%s"
+	movieDetailsKey   = "movie:details:%s"
+	tvShowKey         = "tvshow:%s"
+	tvShowDetailsKey  = "tvshow:details:%s"
+	seasonEpisodesKey = "tvshow:%s:season:%d"
+	episodeKey        = "tvshow:%s:season:%d:episode:%d"
+)
+
 type Cache interface {
-	Set(ctx context.Context, key string, value any) error
-	Get(ctx context.Context, key string) (any, error)
+	// Recherches
+	SetMovieSearch(ctx context.Context, query string, year int, page int, results mediadata.MovieResults) error
+	GetMovieSearch(ctx context.Context, query string, year int, page int) (mediadata.MovieResults, error)
+	SetTvShowSearch(ctx context.Context, query string, year int, page int, results mediadata.TvShowResults) error
+	GetTvShowSearch(ctx context.Context, query string, year int, page int) (mediadata.TvShowResults, error)
+
+	// Films
+	SetMovie(ctx context.Context, id string, movie mediadata.Movie) error
+	GetMovie(ctx context.Context, id string) (mediadata.Movie, error)
+	SetMovieDetails(ctx context.Context, id string, details mediadata.MovieDetails) error
+	GetMovieDetails(ctx context.Context, id string) (mediadata.MovieDetails, error)
+
+	// Séries
+	SetTvShow(ctx context.Context, id string, tvShow mediadata.TvShow) error
+	GetTvShow(ctx context.Context, id string) (mediadata.TvShow, error)
+	SetTvShowDetails(ctx context.Context, id string, details mediadata.TvShowDetails) error
+	GetTvShowDetails(ctx context.Context, id string) (mediadata.TvShowDetails, error)
+
+	// Episodes
+	SetSeasonEpisodes(ctx context.Context, showID string, seasonNum int, episodes []mediadata.Episode) error
+	GetSeasonEpisodes(ctx context.Context, showID string, seasonNum int) ([]mediadata.Episode, error)
+	SetEpisode(ctx context.Context, showID string, seasonNum int, episodeNum int, episode mediadata.Episode) error
+	GetEpisode(ctx context.Context, showID string, seasonNum int, episodeNum int) (mediadata.Episode, error)
 }
 
 func NewGoCache() (Cache, error) {
@@ -820,14 +861,119 @@ type goCache struct {
 	marshaler *marshaler.Marshaler
 }
 
-func (g goCache) Set(ctx context.Context, key string, value any) error {
-	//TODO implement me
-	panic("implement me")
+func (g *goCache) SetMovieSearch(ctx context.Context, query string, year int, page int, results mediadata.MovieResults) error {
+	key := fmt.Sprintf(movieSearchKey, query, year, page)
+	return g.marshaler.Set(ctx, key, results, store.WithExpiration(1*time.Hour))
 }
 
-func (g goCache) Get(ctx context.Context, key string) (any, error) {
-	//TODO implement me
-	panic("implement me")
+func (g *goCache) GetMovieSearch(ctx context.Context, query string, year int, page int) (mediadata.MovieResults, error) {
+	key := fmt.Sprintf(movieSearchKey, query, year, page)
+	results, err := g.marshaler.Get(ctx, key, new(mediadata.MovieResults))
+	if err != nil {
+		return mediadata.MovieResults{}, err
+	}
+	return *results.(*mediadata.MovieResults), nil
+}
+
+func (g *goCache) SetTvShowSearch(ctx context.Context, query string, year int, page int, results mediadata.TvShowResults) error {
+	key := fmt.Sprintf(tvShowSearchKey, query, year, page)
+	return g.marshaler.Set(ctx, key, results, store.WithExpiration(1*time.Hour))
+}
+
+func (g *goCache) GetTvShowSearch(ctx context.Context, query string, year int, page int) (mediadata.TvShowResults, error) {
+	key := fmt.Sprintf(tvShowSearchKey, query, year, page)
+	results, err := g.marshaler.Get(ctx, key, new(mediadata.TvShowResults))
+	if err != nil {
+		return mediadata.TvShowResults{}, err
+	}
+	return *results.(*mediadata.TvShowResults), nil
+}
+
+// Films
+func (g *goCache) SetMovie(ctx context.Context, id string, movie mediadata.Movie) error {
+	key := fmt.Sprintf(movieKey, id)
+	return g.marshaler.Set(ctx, key, movie, store.WithExpiration(24*time.Hour))
+}
+
+func (g *goCache) GetMovie(ctx context.Context, id string) (mediadata.Movie, error) {
+	key := fmt.Sprintf(movieKey, id)
+	result, err := g.marshaler.Get(ctx, key, new(mediadata.Movie))
+	if err != nil {
+		return mediadata.Movie{}, err
+	}
+	return *result.(*mediadata.Movie), nil
+}
+
+func (g *goCache) SetMovieDetails(ctx context.Context, id string, details mediadata.MovieDetails) error {
+	key := fmt.Sprintf(movieDetailsKey, id)
+	return g.marshaler.Set(ctx, key, details, store.WithExpiration(24*time.Hour))
+}
+
+func (g *goCache) GetMovieDetails(ctx context.Context, id string) (mediadata.MovieDetails, error) {
+	key := fmt.Sprintf(movieDetailsKey, id)
+	result, err := g.marshaler.Get(ctx, key, new(mediadata.MovieDetails))
+	if err != nil {
+		return mediadata.MovieDetails{}, err
+	}
+	return *result.(*mediadata.MovieDetails), nil
+}
+
+// Séries
+func (g *goCache) SetTvShow(ctx context.Context, id string, tvShow mediadata.TvShow) error {
+	key := fmt.Sprintf(tvShowKey, id)
+	return g.marshaler.Set(ctx, key, tvShow, store.WithExpiration(24*time.Hour))
+}
+
+func (g *goCache) GetTvShow(ctx context.Context, id string) (mediadata.TvShow, error) {
+	key := fmt.Sprintf(tvShowKey, id)
+	result, err := g.marshaler.Get(ctx, key, new(mediadata.TvShow))
+	if err != nil {
+		return mediadata.TvShow{}, err
+	}
+	return *result.(*mediadata.TvShow), nil
+}
+
+func (g *goCache) SetTvShowDetails(ctx context.Context, id string, details mediadata.TvShowDetails) error {
+	key := fmt.Sprintf(tvShowDetailsKey, id)
+	return g.marshaler.Set(ctx, key, details, store.WithExpiration(24*time.Hour))
+}
+
+func (g *goCache) GetTvShowDetails(ctx context.Context, id string) (mediadata.TvShowDetails, error) {
+	key := fmt.Sprintf(tvShowDetailsKey, id)
+	result, err := g.marshaler.Get(ctx, key, new(mediadata.TvShowDetails))
+	if err != nil {
+		return mediadata.TvShowDetails{}, err
+	}
+	return *result.(*mediadata.TvShowDetails), nil
+}
+
+// Episodes
+func (g *goCache) SetSeasonEpisodes(ctx context.Context, showID string, seasonNum int, episodes []mediadata.Episode) error {
+	key := fmt.Sprintf(seasonEpisodesKey, showID, seasonNum)
+	return g.marshaler.Set(ctx, key, episodes, store.WithExpiration(24*time.Hour))
+}
+
+func (g *goCache) GetSeasonEpisodes(ctx context.Context, showID string, seasonNum int) ([]mediadata.Episode, error) {
+	key := fmt.Sprintf(seasonEpisodesKey, showID, seasonNum)
+	result, err := g.marshaler.Get(ctx, key, new([]mediadata.Episode))
+	if err != nil {
+		return nil, err
+	}
+	return *result.(*[]mediadata.Episode), nil
+}
+
+func (g *goCache) SetEpisode(ctx context.Context, showID string, seasonNum int, episodeNum int, episode mediadata.Episode) error {
+	key := fmt.Sprintf(episodeKey, showID, seasonNum, episodeNum)
+	return g.marshaler.Set(ctx, key, episode, store.WithExpiration(24*time.Hour))
+}
+
+func (g *goCache) GetEpisode(ctx context.Context, showID string, seasonNum int, episodeNum int) (mediadata.Episode, error) {
+	key := fmt.Sprintf(episodeKey, showID, seasonNum, episodeNum)
+	result, err := g.marshaler.Get(ctx, key, new(mediadata.Episode))
+	if err != nil {
+		return mediadata.Episode{}, err
+	}
+	return *result.(*mediadata.Episode), nil
 }
 
 ```
@@ -838,6 +984,7 @@ func (g goCache) Get(ctx context.Context, key string) (any, error) {
 package mediadata
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -852,107 +999,107 @@ const (
 )
 
 type Genre struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Person struct {
-	ID         string
-	Name       string
-	Character  string
-	ProfileURL string
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Character  string `json:"character"`
+	ProfileURL string `json:"profile_url"`
 }
 
 type Studio struct {
-	ID   string
-	Name string
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Movie struct {
-	ID          string
-	Title       string
-	Overview    string
-	ReleaseDate string
-	Year        string
-	PosterURL   string
-	Rating      float32
-	RatingCount int64
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Overview    string  `json:"overview"`
+	ReleaseDate string  `json:"release_date"`
+	Year        string  `json:"year"`
+	PosterURL   string  `json:"poster_url"`
+	Rating      float32 `json:"rating"`
+	RatingCount int64   `json:"rating_count"`
 }
 
 type MovieDetails struct {
 	Movie
-	Runtime int
-	Genres  []Genre
-	Cast    []Person
-	Studio  []Studio
+	Runtime int      `json:"runtime"`
+	Genres  []Genre  `json:"genres"`
+	Cast    []Person `json:"cast"`
+	Studio  []Studio `json:"studio"`
 }
 
 type MovieResults struct {
-	Movies         []Movie
-	Totals         int64
-	ResultsPerPage int64
+	Movies         []Movie `json:"movies"`
+	Totals         int64   `json:"totals"`
+	ResultsPerPage int64   `json:"results_per_page"`
 }
 
 type Season struct {
-	SeasonNumber int
-	EpisodeCount int
-	AirDate      string
-	PosterURL    string
+	SeasonNumber int    `json:"season_number"`
+	EpisodeCount int    `json:"episode_count"`
+	AirDate      string `json:"air_date"`
+	PosterURL    string `json:"poster_url"`
 }
 
 type Episode struct {
-	ID            string
-	AirDate       string
-	EpisodeNumber int
-	SeasonNumber  int
-	Name          string
-	Overview      string
-	StillURL      string
-	VoteAverage   float32
-	VoteCount     int64
+	ID            string  `json:"id"`
+	AirDate       string  `json:"air_date"`
+	EpisodeNumber int     `json:"episode_number"`
+	SeasonNumber  int     `json:"season_number"`
+	Name          string  `json:"name"`
+	Overview      string  `json:"overview"`
+	StillURL      string  `json:"still_url"`
+	VoteAverage   float32 `json:"vote_average"`
+	VoteCount     int64   `json:"vote_count"`
 }
 
 type TvShow struct {
-	ID          string
-	Title       string
-	Overview    string
-	FistAirDate string
-	Year        string
-	PosterURL   string
-	Rating      float32
-	RatingCount int64
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Overview    string  `json:"overview"`
+	FistAirDate string  `json:"first_air_date"`
+	Year        string  `json:"year"`
+	PosterURL   string  `json:"poster_url"`
+	Rating      float32 `json:"rating"`
+	RatingCount int64   `json:"rating_count"`
 }
 
 type TvShowDetails struct {
 	TvShow
-	SeasonCount  int
-	EpisodeCount int
-	LastEpisode  Episode
-	NextEpisode  Episode
-	Status       Status
-	Seasons      []Season
-	Genres       []Genre
-	Cast         []Person
-	Studio       []Studio
+	SeasonCount  int      `json:"season_count"`
+	EpisodeCount int      `json:"episode_count"`
+	LastEpisode  Episode  `json:"last_episode"`
+	NextEpisode  Episode  `json:"next_episode"`
+	Status       Status   `json:"status"`
+	Seasons      []Season `json:"seasons"`
+	Genres       []Genre  `json:"genres"`
+	Cast         []Person `json:"cast"`
+	Studio       []Studio `json:"studio"`
 }
 
 type TvShowResults struct {
-	TvShows        []TvShow
-	Totals         int64
-	ResultsPerPage int64
+	TvShows        []TvShow `json:"tv_shows"`
+	Totals         int64    `json:"totals"`
+	ResultsPerPage int64    `json:"results_per_page"`
 }
 
 type MovieClient interface {
-	SearchMovie(query string, year int, page int) (MovieResults, error)
-	GetMovie(id string) (Movie, error)
-	GetMovieDetails(id string) (MovieDetails, error)
+	SearchMovie(ctx context.Context, query string, year int, page int) (MovieResults, error)
+	GetMovie(ctx context.Context, id string) (Movie, error)
+	GetMovieDetails(ctx context.Context, id string) (MovieDetails, error)
 }
 
 type TvShowClient interface {
-	SearchTvShow(query string, year int, page int) (TvShowResults, error)
-	GetTvShow(id string) (TvShow, error)
-	GetTvShowDetails(id string) (TvShowDetails, error)
-	GetEpisode(id string, seasonNumber int, episodeNumber int) (Episode, error)
+	SearchTvShow(ctx context.Context, query string, year int, page int) (TvShowResults, error)
+	GetTvShow(ctx context.Context, id string) (TvShow, error)
+	GetTvShowDetails(ctx context.Context, id string) (TvShowDetails, error)
+	GetEpisode(ctx context.Context, id string, seasonNumber int, episodeNumber int) (Episode, error)
 }
 
 func ShowMovieResults(movies MovieResults) {
@@ -1022,6 +1169,7 @@ import (
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata"
 )
 
@@ -1064,6 +1212,7 @@ func defaultOpts(apiKey string) AllOpts {
 type tmdbClient struct {
 	client *tmdb.Client
 	opts   AllOpts
+	cache  cache.Cache
 }
 
 func cfgMap(opts AllOpts, args ...map[string]string) map[string]string {
@@ -1118,13 +1267,16 @@ func buildStudio(studios []struct {
 package tmdb
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata"
+	"github.com/nouuu/gonamer/pkg/logger"
 )
 
-func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, error) {
+func NewMovieClient(APIKey string, cache cache.Cache, opts ...OptFunc) (mediadata.MovieClient, error) {
 	o := defaultOpts(APIKey)
 	for _, optF := range opts {
 		optF(&o.Opts)
@@ -1134,10 +1286,13 @@ func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, erro
 	if err != nil {
 		return nil, err
 	}
-	return &tmdbClient{client: client, opts: o}, nil
+	return &tmdbClient{client: client, cache: cache, opts: o}, nil
 }
 
-func (t *tmdbClient) SearchMovie(query string, year int, page int) (mediadata.MovieResults, error) {
+func (t *tmdbClient) SearchMovie(ctx context.Context, query string, year int, page int) (mediadata.MovieResults, error) {
+	if result, err := t.cache.GetMovieSearch(ctx, query, year, page); err == nil {
+		return result, nil
+	}
 	opts := map[string]string{
 		"page": strconv.Itoa(page),
 	}
@@ -1148,46 +1303,57 @@ func (t *tmdbClient) SearchMovie(query string, year int, page int) (mediadata.Mo
 	if err != nil {
 		return mediadata.MovieResults{}, err
 	}
-	movies := buildMovieFromResult(searchMovies.SearchMoviesResults)
-	return mediadata.MovieResults{
-		Movies:         movies,
+	results := mediadata.MovieResults{
+		Movies:         buildMovieFromResult(searchMovies.SearchMoviesResults),
 		Totals:         searchMovies.TotalResults,
 		ResultsPerPage: 20,
-	}, nil
+	}
+
+	if err := t.cache.SetMovieSearch(ctx, query, year, page, results); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache movie search results")
+	}
+
+	return results, nil
 }
 
-func (t *tmdbClient) GetMovie(id string) (mediadata.Movie, error) {
-	var idInt int
+func (t *tmdbClient) GetMovie(ctx context.Context, id string) (mediadata.Movie, error) {
+	if movie, err := t.cache.GetMovie(ctx, id); err == nil {
+		return movie, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.Movie{}, err
 	}
-	movieDetails, err := t.client.GetMovieDetails(
-		idInt,
-		cfgMap(t.opts),
-	)
+	movieDetails, err := t.client.GetMovieDetails(idInt, cfgMap(t.opts))
 	if err != nil {
 		return mediadata.Movie{}, err
 	}
-	return buildMovie(movieDetails), nil
+	movie := buildMovie(movieDetails)
+	if err := t.cache.SetMovie(ctx, id, movie); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache movie")
+	}
+	return movie, nil
 }
 
-func (t *tmdbClient) GetMovieDetails(id string) (mediadata.MovieDetails, error) {
-	var idInt int
+func (t *tmdbClient) GetMovieDetails(ctx context.Context, id string) (mediadata.MovieDetails, error) {
+	if details, err := t.cache.GetMovieDetails(ctx, id); err == nil {
+		return details, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.MovieDetails{}, err
 	}
-	movieDetails, err := t.client.GetMovieDetails(
-		idInt,
-		cfgMap(t.opts, map[string]string{
-			"append_to_response": "credits",
-		}),
-	)
+	movieDetails, err := t.client.GetMovieDetails(idInt, cfgMap(t.opts, map[string]string{
+		"append_to_response": "credits",
+	}))
 	if err != nil {
 		return mediadata.MovieDetails{}, err
 	}
-	return buildMovieDetails(movieDetails), nil
+	details := buildMovieDetails(movieDetails)
+	if err := t.cache.SetMovieDetails(ctx, id, details); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache movie details")
+	}
+	return details, nil
 }
 
 func buildMovie(movie *tmdb.MovieDetails) mediadata.Movie {
@@ -1281,13 +1447,17 @@ func buildMovieCast(cast []struct {
 package tmdb
 
 import (
+	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata"
+	"github.com/nouuu/gonamer/pkg/logger"
 )
 
-func NewTvShowClient(APIKey string, opts ...OptFunc) (mediadata.TvShowClient, error) {
+func NewTvShowClient(APIKey string, cache cache.Cache, opts ...OptFunc) (mediadata.TvShowClient, error) {
 	o := defaultOpts(APIKey)
 	for _, optF := range opts {
 		optF(&o.Opts)
@@ -1297,105 +1467,146 @@ func NewTvShowClient(APIKey string, opts ...OptFunc) (mediadata.TvShowClient, er
 	if err != nil {
 		return nil, err
 	}
-	return &tmdbClient{client: client, opts: o}, nil
+	return &tmdbClient{client: client, cache: cache, opts: o}, nil
 }
 
-func (t *tmdbClient) SearchTvShow(query string, year int, page int) (mediadata.TvShowResults, error) {
+func (t *tmdbClient) SearchTvShow(ctx context.Context, query string, year int, page int) (mediadata.TvShowResults, error) {
+	if result, err := t.cache.GetTvShowSearch(ctx, query, year, page); err == nil {
+		return result, nil
+	}
 	opts := map[string]string{
 		"page": strconv.Itoa(page),
 	}
 	if year != 0 {
 		opts["year"] = strconv.Itoa(year)
 	}
-
 	searchTvShows, err := t.client.GetSearchTVShow(query, cfgMap(t.opts, opts))
 	if err != nil {
 		return mediadata.TvShowResults{}, err
 	}
-	tvShows := buildTvShowFromResult(searchTvShows.SearchTVShowsResults)
-	return mediadata.TvShowResults{
-		TvShows:        tvShows,
+	results := mediadata.TvShowResults{
+		TvShows:        buildTvShowFromResult(searchTvShows.SearchTVShowsResults),
 		Totals:         searchTvShows.TotalResults,
 		ResultsPerPage: 20,
-	}, nil
+	}
+	if err := t.cache.SetTvShowSearch(ctx, query, year, page, results); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache tv show search results")
+	}
+	return results, nil
 }
 
-func (t *tmdbClient) GetTvShow(id string) (mediadata.TvShow, error) {
-	var idInt int
+func (t *tmdbClient) GetTvShow(ctx context.Context, id string) (mediadata.TvShow, error) {
+	if show, err := t.cache.GetTvShow(ctx, id); err == nil {
+		return show, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.TvShow{}, err
 	}
-	tvShowDetails, err := t.client.GetTVDetails(
-		idInt,
-		cfgMap(t.opts),
-	)
+	tvShowDetails, err := t.client.GetTVDetails(idInt, cfgMap(t.opts))
 	if err != nil {
 		return mediadata.TvShow{}, err
 	}
-	return buildTvShow(tvShowDetails), nil
+	tvShow := buildTvShow(tvShowDetails)
+	if err := t.cache.SetTvShow(ctx, id, tvShow); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache tv show")
+	}
+	return tvShow, nil
 }
 
-func (t *tmdbClient) GetTvShowDetails(id string) (mediadata.TvShowDetails, error) {
-	var idInt int
+func (t *tmdbClient) GetTvShowDetails(ctx context.Context, id string) (mediadata.TvShowDetails, error) {
+	if details, err := t.cache.GetTvShowDetails(ctx, id); err == nil {
+		return details, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.TvShowDetails{}, err
 	}
-	tvShowDetails, err := t.client.GetTVDetails(
-		idInt,
-		cfgMap(t.opts, map[string]string{
-			"append_to_response": "credits",
-		}),
-	)
+	tvShowDetails, err := t.client.GetTVDetails(idInt, cfgMap(t.opts, map[string]string{
+		"append_to_response": "credits",
+	}))
 	if err != nil {
 		return mediadata.TvShowDetails{}, err
 	}
-	return buildTvShowDetails(tvShowDetails), nil
+	details := buildTvShowDetails(tvShowDetails)
+	if err := t.cache.SetTvShowDetails(ctx, id, details); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache tv show details")
+	}
+	return details, nil
 }
 
-func (t *tmdbClient) GetEpisode(id string, seasonNumber int, episodeNumber int) (mediadata.Episode, error) {
-	var idInt int
+func (t *tmdbClient) GetEpisode(ctx context.Context, id string, seasonNumber int, episodeNumber int) (mediadata.Episode, error) {
+	if episode, err := t.cache.GetEpisode(ctx, id, seasonNumber, episodeNumber); err == nil {
+		return episode, nil
+	}
+
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.Episode{}, err
 	}
-	episode, err := t.client.GetTVEpisodeDetails(
-		idInt,
-		seasonNumber,
-		episodeNumber,
-		cfgMap(t.opts),
-	)
+
+	/*episodeDetails, err := t.client.GetTVEpisodeDetails(idInt, seasonNumber, episodeNumber, cfgMap(t.opts))
+	if err != nil {
+		return mediadata.Episode{}, err
+	}*/
+
+	season, err := t.client.GetTVSeasonDetails(idInt, seasonNumber, cfgMap(t.opts))
 	if err != nil {
 		return mediadata.Episode{}, err
 	}
-	return buildEpisode(struct {
-		AirDate        string  `json:"air_date"`
-		EpisodeNumber  int     `json:"episode_number"`
-		ID             int64   `json:"id"`
-		Name           string  `json:"name"`
-		Overview       string  `json:"overview"`
-		ProductionCode string  `json:"production_code"`
-		SeasonNumber   int     `json:"season_number"`
-		ShowID         int64   `json:"show_id"`
-		StillPath      string  `json:"still_path"`
-		VoteAverage    float32 `json:"vote_average"`
-		VoteCount      int64   `json:"vote_count"`
-	}{
-		AirDate:        episode.AirDate,
-		EpisodeNumber:  episode.EpisodeNumber,
-		ID:             episode.ID,
-		Name:           episode.Name,
-		Overview:       episode.Overview,
-		ProductionCode: episode.ProductionCode,
-		SeasonNumber:   episode.SeasonNumber,
-		ShowID:         int64(idInt),
-		StillPath:      episode.StillPath,
-		VoteAverage:    episode.VoteAverage,
-		VoteCount:      episode.VoteCount,
-	}), nil
-}
 
+	episodes := make([]mediadata.Episode, 0, len(season.Episodes))
+
+	for _, episode := range season.Episodes {
+		episode := buildEpisode(struct {
+			AirDate        string  `json:"air_date"`
+			EpisodeNumber  int     `json:"episode_number"`
+			ID             int64   `json:"id"`
+			Name           string  `json:"name"`
+			Overview       string  `json:"overview"`
+			ProductionCode string  `json:"production_code"`
+			SeasonNumber   int     `json:"season_number"`
+			ShowID         int64   `json:"show_id"`
+			StillPath      string  `json:"still_path"`
+			VoteAverage    float32 `json:"vote_average"`
+			VoteCount      int64   `json:"vote_count"`
+		}{
+			AirDate:        episode.AirDate,
+			EpisodeNumber:  episode.EpisodeNumber,
+			ID:             episode.ID,
+			Name:           episode.Name,
+			Overview:       episode.Overview,
+			ProductionCode: episode.ProductionCode,
+			SeasonNumber:   episode.SeasonNumber,
+			ShowID:         int64(idInt),
+			StillPath:      episode.StillPath,
+			VoteAverage:    episode.VoteAverage,
+			VoteCount:      episode.VoteCount,
+		})
+		episodes = append(episodes, episode)
+
+		if err := t.cache.SetEpisode(ctx, id, seasonNumber, episodeNumber, episode); err != nil {
+			logger.FromContext(ctx).With("error", err).Error("failed to cache episode")
+		}
+
+	}
+
+	if err := t.cache.SetSeasonEpisodes(ctx, id, seasonNumber, episodes); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache episode")
+	}
+
+	if episodeNumber <= 0 || episodeNumber > len(episodes) {
+		return mediadata.Episode{}, fmt.Errorf("episode number %d out of range (season has %d episodes)", episodeNumber, len(episodes))
+	}
+
+	for _, episode := range episodes {
+		if episode.EpisodeNumber == episodeNumber {
+			return episode, nil
+		}
+	}
+
+	return mediadata.Episode{}, fmt.Errorf("episode not found")
+}
 func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
 	releaseYear := ""
 	if len(tvShow.FirstAirDate) >= 4 {
@@ -1632,7 +1843,7 @@ func (mr *MediaRenamer) SuggestMovies(ctx context.Context, movie mediascanner.Mo
 	log := logger.FromContext(ctx).With("movie", movie)
 	suggestions.Movie = movie
 	maxResults = int(math.Max(math.Min(float64(maxResults), 100), 1))
-	movies, err := mr.movieClient.SearchMovie(movie.Name, movie.Year, 1)
+	movies, err := mr.movieClient.SearchMovie(ctx, movie.Name, movie.Year, 1)
 	if err != nil {
 		log.With("error", err).Error("Error searching movie")
 		return
@@ -1654,7 +1865,7 @@ func (mr *MediaRenamer) SuggestEpisodes(ctx context.Context, episode mediascanne
 	log := logger.FromContext(ctx).With("episode", episode)
 	suggestions.Episode = episode
 	maxResults = int(math.Max(math.Min(float64(maxResults), 100), 1))
-	tvShow, err := mr.tvShowClient.SearchTvShow(episode.Name, 0, 1)
+	tvShow, err := mr.tvShowClient.SearchTvShow(ctx, episode.Name, 0, 1)
 	if err != nil {
 		log.With("error", err).Error("Error searching tv show")
 		return
@@ -1664,8 +1875,8 @@ func (mr *MediaRenamer) SuggestEpisodes(ctx context.Context, episode mediascanne
 		err = errors.New("no tv show found")
 		return
 	}
-	for _, tvShow := range tvShow.TvShows { // TODO implement GetSeasonEpisodes and put answer in cache to avoid multiple requests
-		episodes, err := mr.tvShowClient.GetEpisode(tvShow.ID, episode.Season, episode.Episode)
+	for _, tvShow := range tvShow.TvShows {
+		episodes, err := mr.tvShowClient.GetEpisode(ctx, tvShow.ID, episode.Season, episode.Episode)
 		if err != nil {
 			log.With("error", err).Error("Error getting episode")
 		}

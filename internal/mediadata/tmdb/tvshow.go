@@ -1,13 +1,17 @@
 package tmdb
 
 import (
+	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata"
+	"github.com/nouuu/gonamer/pkg/logger"
 )
 
-func NewTvShowClient(APIKey string, opts ...OptFunc) (mediadata.TvShowClient, error) {
+func NewTvShowClient(APIKey string, cache cache.Cache, opts ...OptFunc) (mediadata.TvShowClient, error) {
 	o := defaultOpts(APIKey)
 	for _, optF := range opts {
 		optF(&o.Opts)
@@ -17,105 +21,146 @@ func NewTvShowClient(APIKey string, opts ...OptFunc) (mediadata.TvShowClient, er
 	if err != nil {
 		return nil, err
 	}
-	return &tmdbClient{client: client, opts: o}, nil
+	return &tmdbClient{client: client, cache: cache, opts: o}, nil
 }
 
-func (t *tmdbClient) SearchTvShow(query string, year int, page int) (mediadata.TvShowResults, error) {
+func (t *tmdbClient) SearchTvShow(ctx context.Context, query string, year int, page int) (mediadata.TvShowResults, error) {
+	if result, err := t.cache.GetTvShowSearch(ctx, query, year, page); err == nil {
+		return result, nil
+	}
 	opts := map[string]string{
 		"page": strconv.Itoa(page),
 	}
 	if year != 0 {
 		opts["year"] = strconv.Itoa(year)
 	}
-
 	searchTvShows, err := t.client.GetSearchTVShow(query, cfgMap(t.opts, opts))
 	if err != nil {
 		return mediadata.TvShowResults{}, err
 	}
-	tvShows := buildTvShowFromResult(searchTvShows.SearchTVShowsResults)
-	return mediadata.TvShowResults{
-		TvShows:        tvShows,
+	results := mediadata.TvShowResults{
+		TvShows:        buildTvShowFromResult(searchTvShows.SearchTVShowsResults),
 		Totals:         searchTvShows.TotalResults,
 		ResultsPerPage: 20,
-	}, nil
+	}
+	if err := t.cache.SetTvShowSearch(ctx, query, year, page, results); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache tv show search results")
+	}
+	return results, nil
 }
 
-func (t *tmdbClient) GetTvShow(id string) (mediadata.TvShow, error) {
-	var idInt int
+func (t *tmdbClient) GetTvShow(ctx context.Context, id string) (mediadata.TvShow, error) {
+	if show, err := t.cache.GetTvShow(ctx, id); err == nil {
+		return show, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.TvShow{}, err
 	}
-	tvShowDetails, err := t.client.GetTVDetails(
-		idInt,
-		cfgMap(t.opts),
-	)
+	tvShowDetails, err := t.client.GetTVDetails(idInt, cfgMap(t.opts))
 	if err != nil {
 		return mediadata.TvShow{}, err
 	}
-	return buildTvShow(tvShowDetails), nil
+	tvShow := buildTvShow(tvShowDetails)
+	if err := t.cache.SetTvShow(ctx, id, tvShow); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache tv show")
+	}
+	return tvShow, nil
 }
 
-func (t *tmdbClient) GetTvShowDetails(id string) (mediadata.TvShowDetails, error) {
-	var idInt int
+func (t *tmdbClient) GetTvShowDetails(ctx context.Context, id string) (mediadata.TvShowDetails, error) {
+	if details, err := t.cache.GetTvShowDetails(ctx, id); err == nil {
+		return details, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.TvShowDetails{}, err
 	}
-	tvShowDetails, err := t.client.GetTVDetails(
-		idInt,
-		cfgMap(t.opts, map[string]string{
-			"append_to_response": "credits",
-		}),
-	)
+	tvShowDetails, err := t.client.GetTVDetails(idInt, cfgMap(t.opts, map[string]string{
+		"append_to_response": "credits",
+	}))
 	if err != nil {
 		return mediadata.TvShowDetails{}, err
 	}
-	return buildTvShowDetails(tvShowDetails), nil
+	details := buildTvShowDetails(tvShowDetails)
+	if err := t.cache.SetTvShowDetails(ctx, id, details); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache tv show details")
+	}
+	return details, nil
 }
 
-func (t *tmdbClient) GetEpisode(id string, seasonNumber int, episodeNumber int) (mediadata.Episode, error) {
-	var idInt int
+func (t *tmdbClient) GetEpisode(ctx context.Context, id string, seasonNumber int, episodeNumber int) (mediadata.Episode, error) {
+	if episode, err := t.cache.GetEpisode(ctx, id, seasonNumber, episodeNumber); err == nil {
+		return episode, nil
+	}
+
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.Episode{}, err
 	}
-	episode, err := t.client.GetTVEpisodeDetails(
-		idInt,
-		seasonNumber,
-		episodeNumber,
-		cfgMap(t.opts),
-	)
+
+	/*episodeDetails, err := t.client.GetTVEpisodeDetails(idInt, seasonNumber, episodeNumber, cfgMap(t.opts))
+	if err != nil {
+		return mediadata.Episode{}, err
+	}*/
+
+	season, err := t.client.GetTVSeasonDetails(idInt, seasonNumber, cfgMap(t.opts))
 	if err != nil {
 		return mediadata.Episode{}, err
 	}
-	return buildEpisode(struct {
-		AirDate        string  `json:"air_date"`
-		EpisodeNumber  int     `json:"episode_number"`
-		ID             int64   `json:"id"`
-		Name           string  `json:"name"`
-		Overview       string  `json:"overview"`
-		ProductionCode string  `json:"production_code"`
-		SeasonNumber   int     `json:"season_number"`
-		ShowID         int64   `json:"show_id"`
-		StillPath      string  `json:"still_path"`
-		VoteAverage    float32 `json:"vote_average"`
-		VoteCount      int64   `json:"vote_count"`
-	}{
-		AirDate:        episode.AirDate,
-		EpisodeNumber:  episode.EpisodeNumber,
-		ID:             episode.ID,
-		Name:           episode.Name,
-		Overview:       episode.Overview,
-		ProductionCode: episode.ProductionCode,
-		SeasonNumber:   episode.SeasonNumber,
-		ShowID:         int64(idInt),
-		StillPath:      episode.StillPath,
-		VoteAverage:    episode.VoteAverage,
-		VoteCount:      episode.VoteCount,
-	}), nil
-}
 
+	episodes := make([]mediadata.Episode, 0, len(season.Episodes))
+
+	for _, episode := range season.Episodes {
+		episode := buildEpisode(struct {
+			AirDate        string  `json:"air_date"`
+			EpisodeNumber  int     `json:"episode_number"`
+			ID             int64   `json:"id"`
+			Name           string  `json:"name"`
+			Overview       string  `json:"overview"`
+			ProductionCode string  `json:"production_code"`
+			SeasonNumber   int     `json:"season_number"`
+			ShowID         int64   `json:"show_id"`
+			StillPath      string  `json:"still_path"`
+			VoteAverage    float32 `json:"vote_average"`
+			VoteCount      int64   `json:"vote_count"`
+		}{
+			AirDate:        episode.AirDate,
+			EpisodeNumber:  episode.EpisodeNumber,
+			ID:             episode.ID,
+			Name:           episode.Name,
+			Overview:       episode.Overview,
+			ProductionCode: episode.ProductionCode,
+			SeasonNumber:   episode.SeasonNumber,
+			ShowID:         int64(idInt),
+			StillPath:      episode.StillPath,
+			VoteAverage:    episode.VoteAverage,
+			VoteCount:      episode.VoteCount,
+		})
+		episodes = append(episodes, episode)
+
+		if err := t.cache.SetEpisode(ctx, id, seasonNumber, episodeNumber, episode); err != nil {
+			logger.FromContext(ctx).With("error", err).Error("failed to cache episode")
+		}
+
+	}
+
+	if err := t.cache.SetSeasonEpisodes(ctx, id, seasonNumber, episodes); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache episode")
+	}
+
+	if episodeNumber <= 0 || episodeNumber > len(episodes) {
+		return mediadata.Episode{}, fmt.Errorf("episode number %d out of range (season has %d episodes)", episodeNumber, len(episodes))
+	}
+
+	for _, episode := range episodes {
+		if episode.EpisodeNumber == episodeNumber {
+			return episode, nil
+		}
+	}
+
+	return mediadata.Episode{}, fmt.Errorf("episode not found")
+}
 func buildTvShow(tvShow *tmdb.TVDetails) mediadata.TvShow {
 	releaseYear := ""
 	if len(tvShow.FirstAirDate) >= 4 {

@@ -1,13 +1,16 @@
 package tmdb
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata"
+	"github.com/nouuu/gonamer/pkg/logger"
 )
 
-func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, error) {
+func NewMovieClient(APIKey string, cache cache.Cache, opts ...OptFunc) (mediadata.MovieClient, error) {
 	o := defaultOpts(APIKey)
 	for _, optF := range opts {
 		optF(&o.Opts)
@@ -17,10 +20,13 @@ func NewMovieClient(APIKey string, opts ...OptFunc) (mediadata.MovieClient, erro
 	if err != nil {
 		return nil, err
 	}
-	return &tmdbClient{client: client, opts: o}, nil
+	return &tmdbClient{client: client, cache: cache, opts: o}, nil
 }
 
-func (t *tmdbClient) SearchMovie(query string, year int, page int) (mediadata.MovieResults, error) {
+func (t *tmdbClient) SearchMovie(ctx context.Context, query string, year int, page int) (mediadata.MovieResults, error) {
+	if result, err := t.cache.GetMovieSearch(ctx, query, year, page); err == nil {
+		return result, nil
+	}
 	opts := map[string]string{
 		"page": strconv.Itoa(page),
 	}
@@ -31,46 +37,57 @@ func (t *tmdbClient) SearchMovie(query string, year int, page int) (mediadata.Mo
 	if err != nil {
 		return mediadata.MovieResults{}, err
 	}
-	movies := buildMovieFromResult(searchMovies.SearchMoviesResults)
-	return mediadata.MovieResults{
-		Movies:         movies,
+	results := mediadata.MovieResults{
+		Movies:         buildMovieFromResult(searchMovies.SearchMoviesResults),
 		Totals:         searchMovies.TotalResults,
 		ResultsPerPage: 20,
-	}, nil
+	}
+
+	if err := t.cache.SetMovieSearch(ctx, query, year, page, results); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache movie search results")
+	}
+
+	return results, nil
 }
 
-func (t *tmdbClient) GetMovie(id string) (mediadata.Movie, error) {
-	var idInt int
+func (t *tmdbClient) GetMovie(ctx context.Context, id string) (mediadata.Movie, error) {
+	if movie, err := t.cache.GetMovie(ctx, id); err == nil {
+		return movie, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.Movie{}, err
 	}
-	movieDetails, err := t.client.GetMovieDetails(
-		idInt,
-		cfgMap(t.opts),
-	)
+	movieDetails, err := t.client.GetMovieDetails(idInt, cfgMap(t.opts))
 	if err != nil {
 		return mediadata.Movie{}, err
 	}
-	return buildMovie(movieDetails), nil
+	movie := buildMovie(movieDetails)
+	if err := t.cache.SetMovie(ctx, id, movie); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache movie")
+	}
+	return movie, nil
 }
 
-func (t *tmdbClient) GetMovieDetails(id string) (mediadata.MovieDetails, error) {
-	var idInt int
+func (t *tmdbClient) GetMovieDetails(ctx context.Context, id string) (mediadata.MovieDetails, error) {
+	if details, err := t.cache.GetMovieDetails(ctx, id); err == nil {
+		return details, nil
+	}
 	idInt, err := strconv.Atoi(id)
 	if err != nil {
 		return mediadata.MovieDetails{}, err
 	}
-	movieDetails, err := t.client.GetMovieDetails(
-		idInt,
-		cfgMap(t.opts, map[string]string{
-			"append_to_response": "credits",
-		}),
-	)
+	movieDetails, err := t.client.GetMovieDetails(idInt, cfgMap(t.opts, map[string]string{
+		"append_to_response": "credits",
+	}))
 	if err != nil {
 		return mediadata.MovieDetails{}, err
 	}
-	return buildMovieDetails(movieDetails), nil
+	details := buildMovieDetails(movieDetails)
+	if err := t.cache.SetMovieDetails(ctx, id, details); err != nil {
+		logger.FromContext(ctx).With("error", err).Error("failed to cache movie details")
+	}
+	return details, nil
 }
 
 func buildMovie(movie *tmdb.MovieDetails) mediadata.Movie {

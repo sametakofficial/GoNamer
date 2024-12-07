@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/cyruzin/golang-tmdb"
+	"github.com/nouuu/gonamer/internal/cache"
 	"github.com/nouuu/gonamer/internal/mediadata"
 )
 
@@ -46,6 +47,7 @@ func defaultOpts(apiKey string) AllOpts {
 type tmdbClient struct {
 	client *tmdb.Client
 	opts   AllOpts
+	cache  cache.Cache
 }
 
 func cfgMap(opts AllOpts, args ...map[string]string) map[string]string {
