@@ -20,7 +20,7 @@ func (c *Cli) RenameMovies(ctx context.Context, suggestions []mediarenamer.Movie
 	pb, _ := pterm.DefaultProgressbar.WithTotal(len(suggestions)).WithTitle("Renaming movies...").Start()
 	for _, suggestion := range suggestions {
 		pterm.Print("\n")
-		pb.UpdateTitle("Renaming " + suggestion.Movie.OriginalFilename)
+		pb.UpdateTitle("Renaming " + pterm.Green(suggestion.Movie.OriginalFilename))
 		pb.Increment()
 		pb, _ = pb.Stop()
 
@@ -37,7 +37,13 @@ func (c *Cli) RenameMovies(ctx context.Context, suggestions []mediarenamer.Movie
 }
 
 func (c *Cli) RenameMovie(ctx context.Context, suggestion mediarenamer.MovieSuggestions, movie mediadata.Movie) error {
-	pterm.Info.Println("Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, movie, suggestion.Movie)))
+	newFilename := mediarenamer.GenerateMovieFilename(c.Config.MoviePattern, movie, suggestion.Movie)
+	if newFilename == suggestion.Movie.OriginalFilename {
+		pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Movie.OriginalFilename))
+		return nil
+	}
+
+	pterm.Info.Println("Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(newFilename))
 	err := c.mediaRenamer.RenameMovie(ctx, suggestion.Movie, movie, c.Config.MoviePattern, c.Config.DryRun)
 	if err != nil {
 		pterm.Error.Println(pterm.Sprintf("Error renaming movie: %v", err))
@@ -71,18 +77,21 @@ func (c *Cli) RenameTvEpisodes(ctx context.Context, suggestions []mediarenamer.E
 	})
 
 	pb, _ := pterm.DefaultProgressbar.WithTotal(len(suggestions)).WithTitle("Renaming TV episodes...").Start()
-	for _, suggestion := range suggestions {
+
+	for len(suggestions) > 0 {
+		suggestion := suggestions[0]
 		pterm.Print("\n")
 		pb.UpdateTitle("Renaming " + suggestion.Episode.OriginalFilename)
 		pb.Increment()
 		pb, _ = pb.Stop()
 
-		err := c.ProcessTvEpisodeSuggestions(ctx, suggestion)
+		_, err := c.ProcessTvEpisodeSuggestions(ctx, suggestion) // TODO: selectedTvShow
 		if err != nil {
 			return err
 		}
 
 		pb, _ = pb.Start()
+		suggestions = suggestions[1:]
 	}
 	pb.Stop()
 	pterm.Success.Println("Finished renaming TV episodes")
@@ -90,7 +99,13 @@ func (c *Cli) RenameTvEpisodes(ctx context.Context, suggestions []mediarenamer.E
 }
 
 func (c *Cli) RenameTvEpisode(ctx context.Context, suggestion mediarenamer.EpisodeSuggestions, tvShow mediadata.TvShow, episode mediadata.Episode) error {
-	pterm.Info.Println("Renaming episode ", pterm.Yellow(suggestion.Episode.OriginalFilename), "to", pterm.Yellow(mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, tvShow, episode, suggestion.Episode)))
+	newFilename := mediarenamer.GenerateEpisodeFilename(c.Config.TvShowPattern, tvShow, episode, suggestion.Episode)
+	if newFilename == suggestion.Episode.OriginalFilename {
+		pterm.Success.Println("Original filename is already correct for ", pterm.Yellow(suggestion.Episode.OriginalFilename))
+		return nil
+	}
+
+	pterm.Info.Println("Renaming episode ", pterm.Yellow(suggestion.Episode.OriginalFilename), "to", pterm.Yellow(newFilename))
 	err := c.mediaRenamer.RenameEpisode(ctx, suggestion.Episode, tvShow, episode, c.Config.TvShowPattern, c.Config.DryRun)
 	if err != nil {
 		pterm.Error.Println(pterm.Sprintf("Error renaming episode: %v", err))

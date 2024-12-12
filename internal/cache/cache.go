@@ -3,15 +3,18 @@ package cache
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
+	"github.com/nouuu/gonamer/pkg/logger"
+	gocache "github.com/patrickmn/go-cache"
+
 	"github.com/eko/gocache/lib/v4/store"
 	"github.com/nouuu/gonamer/internal/mediadata"
 
 	"github.com/eko/gocache/lib/v4/cache"
 	"github.com/eko/gocache/lib/v4/marshaler"
-	ristrettoStore "github.com/eko/gocache/store/ristretto/v4"
+	gocache_store "github.com/eko/gocache/store/go_cache/v4"
 )
 
 const (
@@ -51,19 +54,37 @@ type Cache interface {
 	GetEpisode(ctx context.Context, showID string, seasonNum int, episodeNum int) (mediadata.Episode, error)
 }
 
-func NewGoCache() (Cache, error) {
-	ristrettoCache, err := ristretto.NewCache(&ristretto.Config{
-		NumCounters: 1_000_000,
-		MaxCost:     1 << 30,
-		BufferItems: 64,
-	})
-	if err != nil {
-		return nil, err
+func NewGoCache(ctx context.Context) (Cache, error) {
+
+	goCacheClient := gocache.New(5*time.Minute, 10*time.Minute)
+
+	if err := goCacheClient.LoadFile("gonamer-cache.gob"); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("failed to load cache file: %w", err)
+		}
 	}
-	ristrettoCacheStore := ristrettoStore.NewRistretto(ristrettoCache, store.WithExpiration(1*time.Hour))
+
+	goCacheStore := gocache_store.NewGoCache(goCacheClient)
+
+	go func(ctx context.Context) {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := goCacheClient.SaveFile("gonamer-cache.gob"); err != nil {
+					logger.FromContext(ctx).With("error", err).Error("failed to save cache file")
+				}
+
+			}
+		}
+	}(ctx)
 
 	return &goCache{
-		marshaler: marshaler.New(cache.New[any](ristrettoCacheStore)),
+		marshaler: marshaler.New(cache.New[any](goCacheStore)),
 	}, nil
 }
 

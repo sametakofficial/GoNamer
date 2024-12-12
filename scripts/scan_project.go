@@ -30,6 +30,7 @@ func NewProjectScanner(rootDir string) *ProjectScanner {
 			"mediatracker.log",
 			"project_knowledge.md",
 			"go.sum",
+			"gonamer-cache.gob",
 		},
 		structure: make([]string, 0),
 		contents:  make([]string, 0),

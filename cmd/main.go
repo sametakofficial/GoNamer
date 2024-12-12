@@ -45,9 +45,15 @@ func startCli(ctx context.Context) {
 
 	config := conf.LoadConfig()
 
-	cacheClient, err := cache.NewGoCache()
+	if config.DryRun {
+		pterm.Info.Println("Dry run enabled")
+	} else {
+		pterm.Warning.Println("Dry run disabled")
+	}
+
+	cacheClient, err := cache.NewGoCache(ctx)
 	if err != nil {
-		pterm.Error.Println(pterm.Error.Sprint("Error creating cache client: %v", err))
+		pterm.Error.Println(pterm.Error.Sprintf("Error creating cache client: %v", err))
 		log.Fatalf("Error creating cache client: %v", err)
 	}
 

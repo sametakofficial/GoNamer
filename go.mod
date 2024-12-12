@@ -5,10 +5,10 @@ go 1.22
 require (
 	github.com/caarlos0/env v3.5.0+incompatible
 	github.com/cyruzin/golang-tmdb v1.6.5
-	github.com/dgraph-io/ristretto v0.2.0
 	github.com/eko/gocache/lib/v4 v4.1.6
-	github.com/eko/gocache/store/ristretto/v4 v4.2.2
+	github.com/eko/gocache/store/go_cache/v4 v4.2.2
 	github.com/joho/godotenv v1.5.1
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pterm/pterm v0.12.79
 	go.uber.org/zap v1.27.0
 	golang.org/x/text v0.17.0
@@ -21,7 +21,6 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/console v1.0.4 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gookit/color v1.5.4 // indirect
@@ -31,7 +30,6 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.14.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.37.0 // indirect

@@ -26,12 +26,14 @@ type MovieSuggestions struct {
 	SuggestedMovies []mediadata.Movie
 }
 
+type SuggestedEpisode struct {
+	TvShow  mediadata.TvShow
+	Episode mediadata.Episode
+}
+
 type EpisodeSuggestions struct {
 	Episode           mediascanner.Episode
-	SuggestedEpisodes []struct {
-		TvShow  mediadata.TvShow
-		Episode mediadata.Episode
-	}
+	SuggestedEpisodes []SuggestedEpisode
 }
 
 type FindMovieSuggestionCallback func(suggestion MovieSuggestions, err error)
