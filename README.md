@@ -14,6 +14,7 @@
 [![Issues](https://img.shields.io/github/issues/nouuu/gonamer)](https://github.com/nouuu/gonamer/issues)
 [![Pull Requests](https://img.shields.io/github/issues-pr/nouuu/gonamer)](https://github.com/nouuu/gonamer/pulls)
 [![Contributors](https://img.shields.io/github/contributors/nouuu/gonamer)](https://github.com/nouuu/gonamer/graphs/contributors)
+[![Lines of Code](https://tokei.rs/b1/github/nouuu/gonamer)](https://github.com/nouuu/gonamer)
 [![Last Commit](https://img.shields.io/github/last-commit/nouuu/gonamer)](https://github.com/nouuu/gonamer/commits/main)
 
 GoNamer is a powerful media file renaming tool that uses the TMDB API to automatically organize and rename your movie and TV show files based on accurate metadata.
