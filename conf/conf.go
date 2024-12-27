@@ -12,7 +12,7 @@ type MediaType string
 
 const (
 	Movie  MediaType = "movie"
-	TvShow           = "tvshow"
+	TvShow MediaType = "tvshow"
 )
 
 type Config struct {

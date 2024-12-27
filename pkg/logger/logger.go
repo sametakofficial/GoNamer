@@ -10,6 +10,10 @@ import (
 var log *zap.SugaredLogger
 var config zap.Config
 
+type CtxKey int
+
+const loggerKey CtxKey = iota
+
 func init() {
 	config = zap.NewDevelopmentConfig()
 	config.EncoderConfig.TimeKey = "timestamp"
@@ -24,11 +28,11 @@ func init() {
 }
 
 func InjectLogger(ctx context.Context, logger *zap.SugaredLogger) context.Context {
-	return context.WithValue(ctx, "logger", logger)
+	return context.WithValue(ctx, loggerKey, logger)
 }
 
 func FromContext(ctx context.Context) *zap.SugaredLogger {
-	if contextLogger, ok := ctx.Value("logger").(*zap.SugaredLogger); ok {
+	if contextLogger, ok := ctx.Value(loggerKey).(*zap.SugaredLogger); ok {
 		return contextLogger
 	}
 	InjectLogger(ctx, log)

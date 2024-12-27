@@ -11,7 +11,7 @@ import (
 func (c *Cli) ScanMovies(ctx context.Context) ([]mediascanner.Movie, error) {
 	ui.ShowInfo("Scanning movies in '%s'...", c.Config.MediaPath)
 	spinner, _ := pterm.DefaultSpinner.WithShowTimer(true).Start("Scanning movies...")
-	defer spinner.Stop()
+	defer ui.HandleSpinnerStop(spinner)
 	movies, err := c.scanner.ScanMovies(ctx, c.Config.MediaPath, mediascanner.ScanMoviesOptions{Recursively: c.Config.Recursive})
 	if err != nil {
 		ui.ShowError("Error scanning movies: %v", err)
@@ -24,7 +24,7 @@ func (c *Cli) ScanMovies(ctx context.Context) ([]mediascanner.Movie, error) {
 func (c *Cli) ScanTvEpisodes(ctx context.Context) ([]mediascanner.Episode, error) {
 	ui.ShowInfo("Scanning TV shows in '%s'...", c.Config.MediaPath)
 	spinner, _ := pterm.DefaultSpinner.WithShowTimer(true).Start("Scanning TV shows...")
-	defer spinner.Stop()
+	defer ui.HandleSpinnerStop(spinner)
 	tvShows, err := c.scanner.ScanEpisodes(ctx, c.Config.MediaPath, mediascanner.ScanEpisodesOptions{Recursively: c.Config.Recursive})
 	if err != nil {
 		ui.ShowError("Error scanning TV shows: %v", err)

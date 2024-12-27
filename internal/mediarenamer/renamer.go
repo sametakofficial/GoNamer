@@ -2,7 +2,6 @@ package mediarenamer
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/nouuu/gonamer/internal/mediadata"
@@ -42,14 +41,14 @@ func GenerateEpisodeFilename(pattern string, show mediadata.TvShow, episode medi
 	return filename
 }
 
-func generateDefaultMovieFilename(fileMovie mediascanner.Movie) string {
+/*func _generateDefaultMovieFilename(fileMovie mediascanner.Movie) string {
 	filename := fileMovie.Name
 	if fileMovie.Year != 0 {
 		filename += " - " + strconv.Itoa(fileMovie.Year)
 	}
 	filename += fileMovie.Extension
 	return filename
-}
+}*/
 
 func replaceField(pattern string, field Field, value string) string {
 	return strings.ReplaceAll(pattern, string(field), value)

@@ -109,8 +109,8 @@ func (mr *MediaRenamer) SuggestMovies(ctx context.Context, movie mediascanner.Mo
 		return
 	}
 	suggestions.SuggestedMovies = movies.Movies
-	if len(suggestions.SuggestedMovies) > 5 {
-		suggestions.SuggestedMovies = suggestions.SuggestedMovies[:5]
+	if len(suggestions.SuggestedMovies) > maxResults {
+		suggestions.SuggestedMovies = suggestions.SuggestedMovies[:maxResults]
 	}
 
 	return
@@ -140,6 +140,11 @@ func (mr *MediaRenamer) SuggestEpisodes(ctx context.Context, episode mediascanne
 			Episode mediadata.Episode
 		}{TvShow: tvShow, Episode: episodes})
 	}
+
+	if len(suggestions.SuggestedEpisodes) > maxResults {
+		suggestions.SuggestedEpisodes = suggestions.SuggestedEpisodes[:maxResults]
+	}
+
 	return
 }
 

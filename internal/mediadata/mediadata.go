@@ -151,13 +151,13 @@ func marshalMovie(movie Movie) (string, error) {
 	return string(mJson), nil
 }
 
-func marshalMovieDetails(movieDetails MovieDetails) (string, error) {
+/*func _marshalMovieDetails(movieDetails MovieDetails) (string, error) {
 	mJson, err := json.MarshalIndent(movieDetails, "", "  ")
 	if err != nil {
 		return "", err
 	}
 	return string(mJson), nil
-}
+}*/
 
 func marshalTvShow(tvShow TvShow) (string, error) {
 	mJson, err := json.MarshalIndent(tvShow, "", "  ")
@@ -167,10 +167,10 @@ func marshalTvShow(tvShow TvShow) (string, error) {
 	return string(mJson), nil
 }
 
-func marshalTvShowDetails(tvShowDetails TvShowDetails) (string, error) {
+/*func _marshalTvShowDetails(tvShowDetails TvShowDetails) (string, error) {
 	mJson, err := json.MarshalIndent(tvShowDetails, "", "  ")
 	if err != nil {
 		return "", err
 	}
 	return string(mJson), nil
-}
+}*/

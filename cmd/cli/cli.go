@@ -58,10 +58,10 @@ func (c *Cli) processMoviesList(ctx context.Context, movies []mediascanner.Movie
 		WithTotal(len(movies)).
 		WithCurrent(1).
 		WithTitle("Processing movies...").Start()
-	defer pb.Stop()
+	defer ui.HandlePbStop(pb)
 
 	for i, movie := range movies {
-		pb.Stop()
+		ui.HandlePbStop(pb)
 
 		// Affiche le titre du film en cours
 		ui.ShowInfo("Processing movie %d/%d: %s", i+1, len(movies), pterm.Yellow(movie.OriginalFilename))
@@ -110,11 +110,11 @@ func (c *Cli) processTvShow(ctx context.Context) {
 
 func (c *Cli) processEpisodesList(ctx context.Context, episodes []mediascanner.Episode) {
 	pb, _ := pterm.DefaultProgressbar.WithTotal(len(episodes)).WithCurrent(1).WithTitle("Processing episodes...").Start()
-	defer pb.Stop()
+	defer ui.HandlePbStop(pb)
 
 	for i, episode := range episodes {
 		// Stop la barre avant d'afficher le menu
-		pb.Stop()
+		ui.HandlePbStop(pb)
 
 		// Affiche le titre de l'épisode en cours
 		ui.ShowInfo("Processing episode %d/%d: %s", i+1, len(episodes), pterm.Yellow(episode.OriginalFilename))
