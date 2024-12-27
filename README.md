@@ -150,14 +150,14 @@ make test
 - [x] Dry-run support
 
 ### 🚀 Current Focus
-- [ ] Prepare for Github with CI implementation
+- [x] Prepare for Github with CI implementation
     - Setup GitHub Actions workflows
     - Implement comprehensive testing
     - Add security checks
     - Configure automated releases
 - [ ] Migrate from .env to config.yml file
     - Design YAML configuration structure
-    - Implement config file loading
+    - Implement configs file loading
     - Add validation layer
 - [ ] Enhance CLI with Cobra framework
     - Migrate to Cobra commands
