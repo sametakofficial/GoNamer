@@ -20,3 +20,5 @@
 *.gob
 
 build
+dist
+coverage.txt
