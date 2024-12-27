@@ -60,12 +60,12 @@ func startCli(ctx context.Context) {
 	scanner := filescanner.New()
 	movieClient, err := tmdb.NewMovieClient(config.TMDBAPIKey, cacheClient, tmdb.WithLang("fr-FR"))
 	if err != nil {
-		pterm.Error.Println(pterm.Error.Sprint("Error creating movie client: %v", err))
+		pterm.Error.Printfln("Error creating movie client: %v", err)
 		log.Fatalf("Error creating movie client: %v", err)
 	}
 	tvShowClient, err := tmdb.NewTvShowClient(config.TMDBAPIKey, cacheClient, tmdb.WithLang("fr-FR"))
 	if err != nil {
-		pterm.Error.Println(pterm.Error.Sprint("Error creating tv show client: %v", err))
+		pterm.Error.Println(pterm.Error.Sprintf("Error creating tv show client: %v", err))
 		log.Fatalf("Error creating tv show client: %v", err)
 	}
 
