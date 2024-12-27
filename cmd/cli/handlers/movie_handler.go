@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path/filepath"
 
@@ -17,6 +16,7 @@ type MovieHandler struct {
 	suggestion   mediarenamer.MovieSuggestions
 	movieClient  mediadata.MovieClient
 	mediaRenamer *mediarenamer.MediaRenamer
+	exitFunc     func() error
 }
 
 func NewMovieHandler(
@@ -24,17 +24,16 @@ func NewMovieHandler(
 	suggestion mediarenamer.MovieSuggestions,
 	movieClient mediadata.MovieClient,
 	mediaRenamer *mediarenamer.MediaRenamer,
+	exitFunc func() error,
 ) *MovieHandler {
 	return &MovieHandler{
 		BaseHandler:  base,
 		suggestion:   suggestion,
 		movieClient:  movieClient,
 		mediaRenamer: mediaRenamer,
+		exitFunc:     exitFunc,
 	}
 }
-
-var ErrExit = errors.New("exit requested")
-
 func (h *MovieHandler) Handle(ctx context.Context) error {
 	if len(h.suggestion.SuggestedMovies) != 1 {
 		return h.handleOptions(ctx)
@@ -73,7 +72,7 @@ func (h *MovieHandler) handleOptions(ctx context.Context) error {
 			return nil
 		},
 		func() error {
-			return ErrExit
+			return h.exitFunc()
 		},
 	)
 
