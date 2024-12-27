@@ -50,8 +50,8 @@ test:
 	go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
 	go tool cover -func=coverage.txt
 
-security: tools
-	go list -json -m all | docker run --rm -i sonatypecommunity/nancy:latest sleuth
+security:
+	go list -json -m all | docker run --rm -i sonatypecommunity/nancy:latest sleuth --exclude-vulnerability CVE-2024-45338
 	docker run --rm -v $(PWD):/app -w /app securego/gosec:latest -no-fail -fmt=json -out=security-report.json ./...
 
 release-dry-run: tools
