@@ -36,9 +36,10 @@ uninstall:
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -f project_knowledge.md
-	rm *.log
-	rm *.gob
-	rm coverage.txt
+	rm -f *.log
+	rm -f *.gob
+	rm -f coverage.txt
+	rm -rf security-report.json
 
 lint: tools
 	golangci-lint run ./...
