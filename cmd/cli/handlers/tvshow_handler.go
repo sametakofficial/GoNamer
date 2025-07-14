@@ -36,6 +36,12 @@ func NewTvShowHandler(
 }
 
 func (h *TvShowHandler) Handle(ctx context.Context) error {
+
+	if !h.config.Scanner.IncludeNotFound && len(h.suggestions.SuggestedEpisodes) == 0 {
+		ui.ShowInfo(ctx, "'%s' için sonuç bulunamadı, ayarlar nedeniyle otomatik atlanıyor.", h.suggestions.Episode.OriginalFilename)
+		return nil
+	}
+
 	if len(h.suggestions.SuggestedEpisodes) != 1 {
 		return h.handleOptions(ctx)
 	}

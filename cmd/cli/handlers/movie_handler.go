@@ -35,6 +35,12 @@ func NewMovieHandler(
 	}
 }
 func (h *MovieHandler) Handle(ctx context.Context) error {
+
+	if !h.config.Scanner.IncludeNotFound && len(h.suggestion.SuggestedMovies) == 0 {
+        ui.ShowInfo(ctx, "'%s' için sonuç bulunamadı, 'include_not_found: false' ayarı nedeniyle otomatik atlanıyor.", h.suggestion.Movie.OriginalFilename)
+        return nil 
+    }
+	
 	if len(h.suggestion.SuggestedMovies) != 1 {
 		return h.handleOptions(ctx)
 	}
