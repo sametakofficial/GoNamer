@@ -70,14 +70,29 @@ func (mr *MediaRenamer) RenameMovie(ctx context.Context, fileMovie mediascanner.
 	// "{name} - {year}{extension}" <3
 	filename := GenerateMovieFilename(pattern, mediadataMovie, fileMovie)
 
-	return mr.RenameFile(ctx, fileMovie.FullPath, filepath.Join(filepath.Dir(fileMovie.FullPath), filename), dryrun)
+	var destination string
+
+	if filepath.IsAbs(filename) {
+		destination = filename
+	} else {
+		destination = filepath.Join(filepath.Dir(fileMovie.FullPath), filename)
+	}
+
+	return mr.RenameFile(ctx, fileMovie.FullPath, destination, dryrun)
 }
 
 func (mr *MediaRenamer) RenameEpisode(ctx context.Context, fileEpisode mediascanner.Episode, tvShow mediadata.TvShow, episode mediadata.Episode, pattern string, dryrun bool) error {
 	// "{name} - {season}x{episode} - {episode_title}{extension}" <3
 	filename := GenerateEpisodeFilename(pattern, tvShow, episode, fileEpisode)
 
-	return mr.RenameFile(ctx, fileEpisode.FullPath, filepath.Join(filepath.Dir(fileEpisode.FullPath), filename), dryrun)
+	var destination string
+
+	if filepath.IsAbs(filename) {
+		destination = filename
+	} else {
+		destination = filepath.Join(filepath.Dir(fileEpisode.FullPath), filename)
+	}
+	return mr.RenameFile(ctx, fileEpisode.FullPath, destination, dryrun)
 }
 
 func (mr *MediaRenamer) RenameFile(ctx context.Context, source, destination string, dryrun bool) error {
@@ -86,11 +101,21 @@ func (mr *MediaRenamer) RenameFile(ctx context.Context, source, destination stri
 	if dryrun {
 		return nil
 	}
-	err := os.Rename(source, destination)
+	var err error
+
+	destDir := filepath.Dir(destination)
+	err = os.MkdirAll(destDir, 0755)
+	if err != nil {
+		log.With("error", err).Error("Error creating destination directory")
+		return err
+	}
+
+	err = os.Rename(source, destination)
 	if err != nil {
 		log.With("error", err).Error("Error renaming file")
 		return err
 	}
+
 	return nil
 }
 

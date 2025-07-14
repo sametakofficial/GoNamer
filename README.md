@@ -1,3 +1,19 @@
+## This fork have improved these;
+
+## 1 |
+### Include Not Fount Usage
+#### If you make include_not_found value false, there will be litteraly no more questions when you run rename command
+
+## 2 |
+### TV Shows Folder Structure 
+#### If you add folder insturcutions in your config.yml tvshow pattern, they will be implemented (like folder creation - changin folder), just like filebot's system. For example, if you make your TV Show and Movie pattern like this;
+``` yml
+  patterns:
+    movie: "/media/ProcessedMovies/{name} ({year})/{name} ({year}){extension}"
+    tvshow: "/media/ProcessedSeries/{name}/Season {season}/{name} - S{season}E{episode}{extension}"
+```
+#### It will automaticly create folders that doesn't exist and move the episode or movie into existing or new created folder.
+
 # GoNamer
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nouuu/gonamer)](https://goreportcard.com/report/github.com/nouuu/gonamer)
