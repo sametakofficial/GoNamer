@@ -140,5 +140,7 @@ func (h *MovieHandler) renameMovie(ctx context.Context, suggestion mediarenamer.
 		pterm.Error.Println(pterm.Sprintf("Error renaming movie: %v", err))
 		return err
 	}
+
+	
 	return nil
 }

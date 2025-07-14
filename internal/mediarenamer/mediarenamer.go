@@ -96,21 +96,25 @@ func (mr *MediaRenamer) RenameEpisode(ctx context.Context, fileEpisode mediascan
 }
 
 func (mr *MediaRenamer) RenameFile(ctx context.Context, source, destination string, dryrun bool) error {
+	finalDestination := findUniqueFilename(destination)
+
 	log := logger.FromContext(ctx)
-	log.Infof("Renaming file %s -> %s", source, destination)
+	log.Infof("Renaming file %s -> %s", source, finalDestination)
+	
 	if dryrun {
 		return nil
 	}
+
 	var err error
 
-	destDir := filepath.Dir(destination)
+	destDir := filepath.Dir(finalDestination)
 	err = os.MkdirAll(destDir, 0755)
 	if err != nil {
 		log.With("error", err).Error("Error creating destination directory")
 		return err
 	}
 
-	err = os.Rename(source, destination)
+	err = os.Rename(source, finalDestination)
 	if err != nil {
 		log.With("error", err).Error("Error renaming file")
 		return err
@@ -118,6 +122,24 @@ func (mr *MediaRenamer) RenameFile(ctx context.Context, source, destination stri
 
 	return nil
 }
+
+func findUniqueFilename(destination string) string {
+	if _, err := os.Stat(destination); os.IsNotExist(err) {
+		return destination
+	}
+
+	ext := filepath.Ext(destination)
+	baseName := destination[0 : len(destination)-len(ext)]
+
+	for i := 1; ; i++ {
+		newDestination := fmt.Sprintf("%s (%d)%s", baseName, i, ext)
+		
+		if _, err := os.Stat(newDestination); os.IsNotExist(err) {
+			return newDestination
+		}
+	}
+}
+
 
 func (mr *MediaRenamer) SuggestMovies(ctx context.Context, movie mediascanner.Movie, maxResults int) (suggestions MovieSuggestions, err error) {
 	log := logger.FromContext(ctx).With("movie", movie)

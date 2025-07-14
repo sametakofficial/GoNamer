@@ -14,6 +14,10 @@
 ```
 #### It will automaticly create folders that doesn't exist and move the episode or movie into existing or new created folder.
 
+## 3 |
+### New function added to prevent same tmdb id episodes or movies (for example diffrent qualities or codecs etc.) to overwrite. 
+#### Now if a file name dublicates, it automaticly adds ...(1) / ...(2) to end of the file name. No logs yet, but there will be
+
 # GoNamer
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nouuu/gonamer)](https://goreportcard.com/report/github.com/nouuu/gonamer)
