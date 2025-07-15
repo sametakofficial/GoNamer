@@ -7,7 +7,9 @@ import (
 	"slices"
 
 	"github.com/nouuu/gonamer/internal/mediascanner"
+	"github.com/nouuu/gonamer/pkg/config"
 	"github.com/nouuu/gonamer/pkg/logger"
+	
 )
 
 var (
@@ -21,13 +23,10 @@ func New() mediascanner.MediaScanner {
 	return &FileScanner{}
 }
 
-func (f *FileScanner) ScanMovies(ctx context.Context, path string, options ...mediascanner.ScanMoviesOptions) (movies []mediascanner.Movie, err error) {
+func (f *FileScanner) ScanMovies(ctx context.Context, path string, cfg *config.Config, options ...mediascanner.ScanMoviesOptions) (movies []mediascanner.Movie, err error) {
 	log := logger.FromContext(ctx)
-	var opts mediascanner.ScanMoviesOptions
-	if len(options) > 0 {
-		opts = options[0]
-	}
-	files, err := scanDirectory(ctx, path, opts.Recursively)
+
+	files, err := scanDirectory(ctx, path, cfg.Scanner.Recursive)
 	if err != nil {
 		log.With("error", err).Error("Error scanning directory")
 		return
@@ -35,19 +34,16 @@ func (f *FileScanner) ScanMovies(ctx context.Context, path string, options ...me
 
 	for _, file := range files {
 		if isFileAllowedExt(file) {
-			movies = append(movies, parseMovieFileName(ctx, file))
+			movies = append(movies, parseMovieFileName(ctx, file, cfg))
 		}
 	}
 	return
 }
 
-func (f *FileScanner) ScanEpisodes(ctx context.Context, path string, options ...mediascanner.ScanEpisodesOptions) (episodes []mediascanner.Episode, err error) {
+func (f *FileScanner) ScanEpisodes(ctx context.Context, path string, cfg *config.Config, options ...mediascanner.ScanEpisodesOptions) (episodes []mediascanner.Episode, err error) {
 	log := logger.FromContext(ctx)
-	var opts mediascanner.ScanEpisodesOptions
-	if len(options) > 0 {
-		opts = options[0]
-	}
-	files, err := scanDirectory(ctx, path, opts.Recursively)
+
+	files, err := scanDirectory(ctx, path, cfg.Scanner.Recursive)
 	if err != nil {
 		log.With("error", err).Error("Error scanning directory")
 		return
@@ -56,8 +52,8 @@ func (f *FileScanner) ScanEpisodes(ctx context.Context, path string, options ...
 	for _, file := range files {
 		if isFileAllowedExt(file) {
 			ctx = logger.InjectLogger(ctx, log.With("file", file))
-			parsed := parseEpisodeFileName(ctx, file, opts.ExcludeUnparsed)
-			if parsed.Name == "" {
+			parsed := parseEpisodeFileName(ctx, file, cfg)
+			if parsed.Name == "" && cfg.Scanner.ExcludeUnparsed {
 				continue
 			}
 			episodes = append(episodes, parsed)

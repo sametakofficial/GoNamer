@@ -18,6 +18,95 @@
 ### New function added to prevent same tmdb id episodes or movies (for example diffrent qualities or codecs etc.) to overwrite. 
 #### Now if a file name dublicates, it automaticly adds ...(1) / ...(2) to end of the file name. No logs yet, but there will be
 
+## 4 |
+### New strategy added to improve intelligence of the scaning regex
+#### For example if you put a file that has a name like "peaky.blinders.s01/peaky.blinders.episode.1.1080p.dpp5" , it will automaticly understand season and episode number.
+
+## 5 |
+### You can now add delete_keywords value to the config.yml to apply the words you spesificly want to erase from the file name and help the algorithm to not understand them as episode or movie name
+#### You can add your custom regex values like this;
+``` yml
+scanner:  # delete_keywords will be under scanner config
+  delete_keywords:
+    - '1080p'
+    - '720p'
+    - '2160p'
+    - '4K'
+    - 'WEB[- ]?DL'
+    - 'WEBDL'
+    - 'BluRay'
+    - 'BRRip'
+    - 'DVDRip'
+    - 'PROPER'
+    - 'UHD'
+    - '10bit'
+    - 'HDTV'
+    - 'BDRip'
+    - 'Extended'
+    - 'DDP[2-7]'
+    - 'DD\+?5'
+    - 'DD[2-7]'
+    - 'DTS'
+    - 'AC3'
+    - 'AAC[0-9]?(\.[0-9])?'
+    - 'Atmos'
+    - 'H\.?264'
+    - 'x264'
+    - 'HEVC'
+    - 'x265'
+    - 'DUAL'
+    - 'SPARKS'
+    - 'TURG'
+    - 'TRsub'
+    - 'MAX'
+    - 'iTunes'
+    - 'CHD'
+    - 'TR'
+    - 'EN'
+    - 'NF'
+    - 'AMZN'
+    - 'DSNP'
+    - 'TOD'
+    - 'EXXEN'
+    - 'BLUTV'
+    - 'Dublaj'
+    - 'TR-EN'
+    - 'x265'
+    - 'AC3'
+    - 'HEVC'
+    - 'WEBRip'
+    - 'xvid'
+    - 'h265'
+    - 'cam'
+    - 'hdrip'
+    - 'hdcam'
+    - 'brrip'
+    - 'mpeg'
+    - 'rip'
+    - 'rarbg'
+    - 'yify'
+    - '1080i'
+    - '1080p'
+    - '720i'
+    - 'web-dl'
+    - 'web'
+    - 'bluray'
+    - 'unrated'
+    - 'multi'
+    - 'dual-audio'
+    - 'audiobook'
+    - 'subbed'
+    - 'dubbed'
+    - 'hevc'
+    - '3d'
+    - 'brrip'
+    - 'dvdscr'
+    - 'dvdrip'
+    - 'web-dl'
+    - 'hdtv'
+    - 'h264'
+```
+### 
 # GoNamer
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/nouuu/gonamer)](https://goreportcard.com/report/github.com/nouuu/gonamer)

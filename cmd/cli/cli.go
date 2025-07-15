@@ -61,13 +61,14 @@ func (c *Cli) processMoviesList(ctx context.Context, movies []mediascanner.Movie
 	defer ui.HandlePbStop(ctx, pb)
 
 	for i, movie := range movies {
+		pb.Increment()
 		ui.HandlePbStop(ctx, pb)
 
 		// Affiche le titre du film en cours
 		ui.ShowInfo(ctx, "Processing movie %d/%d: %s", i+1, len(movies), pterm.Yellow(movie.OriginalFilename))
 
 		// Recherche des suggestions
-		suggestions, err := c.mediaRenamer.SuggestMovies(ctx, movie, c.config.Renamer.MaxResults)
+		suggestions, err := c.mediaRenamer.SuggestMovies(ctx, movie, c.config.Renamer.MaxResults, c.config)
 		if err != nil {
 			suggestions = mediarenamer.MovieSuggestions{Movie: movie}
 			ui.ShowError(ctx, "Error finding suggestions for %s: %v", movie.OriginalFilename, err)
@@ -114,6 +115,7 @@ func (c *Cli) processEpisodesList(ctx context.Context, episodes []mediascanner.E
 	defer ui.HandlePbStop(ctx, pb)
 
 	for i, episode := range episodes {
+		pb.Increment()
 		// Stop la barre avant d'afficher le menu
 		ui.HandlePbStop(ctx, pb)
 
@@ -121,7 +123,7 @@ func (c *Cli) processEpisodesList(ctx context.Context, episodes []mediascanner.E
 		ui.ShowInfo(ctx, "Processing episode %d/%d: %s", i+1, len(episodes), pterm.Yellow(episode.OriginalFilename))
 
 		// Recherche des suggestions
-		suggestions, err := c.mediaRenamer.SuggestEpisodes(ctx, episode, c.config.Renamer.MaxResults)
+		suggestions, err := c.mediaRenamer.SuggestEpisodes(ctx, episode, c.config.Renamer.MaxResults, c.config)
 		if err != nil {
 			suggestions = mediarenamer.EpisodeSuggestions{Episode: episode}
 			ui.ShowError(ctx, "Error finding suggestions for %s: %v", episode.OriginalFilename, err)

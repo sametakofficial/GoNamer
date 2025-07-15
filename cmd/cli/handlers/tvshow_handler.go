@@ -140,17 +140,20 @@ func (h *TvShowHandler) handleManualRename(ctx context.Context) error {
 	}
 
 	filename := fmt.Sprintf("%s.%s", result, h.suggestions.Episode.Extension)
-	ui.ShowInfo(ctx, "Renaming episode %s to %s",
-		pterm.Yellow(h.suggestions.Episode.OriginalFilename),
-		pterm.Yellow(filename),
-	)
 
-	return h.mediaRenamer.RenameFile(
+	finalPath, err := h.mediaRenamer.RenameFile(
 		ctx,
 		h.suggestions.Episode.FullPath,
 		filepath.Join(filepath.Dir(h.suggestions.Episode.FullPath), filename),
 		h.config.Renamer.DryRun,
 	)
+	if err != nil {
+		ui.ShowError(ctx, "Error renaming episode: %v", err)
+		return err
+	}
+
+	ui.ShowInfo(ctx, "Renamed episode %s to %s", pterm.Yellow(h.suggestions.Episode.OriginalFilename), pterm.Yellow(filepath.Base(finalPath)))
+	return nil
 }
 
 func (h *TvShowHandler) renameEpisode(
@@ -159,21 +162,21 @@ func (h *TvShowHandler) renameEpisode(
 	tvShow mediadata.TvShow,
 	episode mediadata.Episode,
 ) error {
-	newFilename := mediarenamer.GenerateEpisodeFilename(h.config.Renamer.Patterns.TVShow, tvShow, episode, suggestion.Episode)
-	if newFilename == suggestion.Episode.OriginalFilename {
-		ui.ShowSuccess(ctx, "Original filename is already correct for %s", pterm.Yellow(suggestion.Episode.OriginalFilename))
-		return nil
-	}
 
-	ui.ShowInfo(ctx, "Renaming episode %s to %s",
-		pterm.Yellow(suggestion.Episode.OriginalFilename),
-		pterm.Yellow(newFilename),
-	)
-
-	err := h.mediaRenamer.RenameEpisode(ctx, suggestion.Episode, tvShow, episode, h.config.Renamer.Patterns.TVShow, h.config.Renamer.DryRun)
+	finalPath, err := h.mediaRenamer.RenameEpisode(ctx, suggestion.Episode, tvShow, episode, h.config.Renamer.Patterns.TVShow, h.config.Renamer.DryRun)
 	if err != nil {
 		ui.ShowError(ctx, "Error renaming episode: %v", err)
 		return err
 	}
+
+	if filepath.Base(finalPath) == suggestion.Episode.OriginalFilename {
+		ui.ShowSuccess(ctx, "Original filename is already correct for %s", pterm.Yellow(suggestion.Episode.OriginalFilename))
+	} else {
+		ui.ShowInfo(ctx, "Renamed episode %s to %s",
+			pterm.Yellow(suggestion.Episode.OriginalFilename),
+			pterm.Yellow(filepath.Base(finalPath)),
+		)
+	}
+	
 	return nil
 }

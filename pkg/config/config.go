@@ -57,7 +57,10 @@ type ScannerConfig struct {
 	MediaPath       string `yaml:"media_path"`
 	Recursive       bool   `yaml:"recursive"`
 	IncludeNotFound bool   `yaml:"include_not_found"`
+	ExcludeUnparsed bool     `yaml:"exclude_unparsed,omitempty"`
+	DeleteKeywords  []string `yaml:"delete_keywords,omitempty"`
 }
+
 
 type RenamerConfig struct {
 	DryRun     bool          `yaml:"dry_run"`

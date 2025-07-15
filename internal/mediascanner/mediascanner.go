@@ -1,7 +1,9 @@
 package mediascanner
 
-import "context"
-
+import (
+	"context"
+	"github.com/nouuu/gonamer/pkg/config"
+)
 type ScanMoviesOptions struct {
 	Recursively bool
 }
@@ -17,6 +19,7 @@ type Movie struct {
 	Name             string
 	Year             int
 	Extension        string
+	Quality          string
 }
 
 type Episode struct {
@@ -26,9 +29,10 @@ type Episode struct {
 	Season           int
 	Episode          int
 	Extension        string
+	Quality          string
 }
 
 type MediaScanner interface {
-	ScanMovies(ctx context.Context, path string, options ...ScanMoviesOptions) ([]Movie, error)
-	ScanEpisodes(ctx context.Context, path string, options ...ScanEpisodesOptions) ([]Episode, error)
+	ScanMovies(ctx context.Context, path string, cfg *config.Config, options ...ScanMoviesOptions) ([]Movie, error)
+	ScanEpisodes(ctx context.Context, path string, cfg *config.Config, options ...ScanEpisodesOptions) ([]Episode, error)
 }

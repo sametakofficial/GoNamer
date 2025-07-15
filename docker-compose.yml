@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: gonamer:latest
-    container_name: gonamer-docker
+    container_name: gonamer
     volumes:
       - "/your_media_path/:/media" # Put your media path here
       - "./config.yml:/app/config.yml"

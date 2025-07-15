@@ -117,30 +117,39 @@ func (h *MovieHandler) handleManualRename(ctx context.Context) error {
 	}
 
 	filename := fmt.Sprintf("%s.%s", result, h.suggestion.Movie.Extension)
-	ui.ShowInfo(ctx, "Renaming movie %s to %s", pterm.Yellow(h.suggestion.Movie.OriginalFilename), pterm.Yellow(filename))
 
-	return h.mediaRenamer.RenameFile(
+	finalPath, err := h.mediaRenamer.RenameFile(
 		ctx,
 		h.suggestion.Movie.FullPath,
 		filepath.Join(filepath.Dir(h.suggestion.Movie.FullPath), filename),
 		h.config.Renamer.DryRun,
 	)
-}
-
-func (h *MovieHandler) renameMovie(ctx context.Context, suggestion mediarenamer.MovieSuggestions, movie mediadata.Movie) error {
-	newFilename := mediarenamer.GenerateMovieFilename(h.config.Renamer.Patterns.Movie, movie, suggestion.Movie)
-	if newFilename == suggestion.Movie.OriginalFilename {
-		ui.ShowSuccess(ctx, "Original filename is already correct for %s", pterm.Yellow(h.suggestion.Movie.OriginalFilename))
-		return nil
-	}
-
-	pterm.Info.Println("Renaming movie ", pterm.Yellow(suggestion.Movie.OriginalFilename), "to", pterm.Yellow(newFilename))
-	err := h.mediaRenamer.RenameMovie(ctx, suggestion.Movie, movie, h.config.Renamer.Patterns.Movie, h.config.Renamer.DryRun)
 	if err != nil {
-		pterm.Error.Println(pterm.Sprintf("Error renaming movie: %v", err))
+		ui.ShowError(ctx, "Error renaming movie: %v", err)
 		return err
 	}
 
+	ui.ShowInfo(ctx, "Renamed movie %s to %s", pterm.Yellow(h.suggestion.Movie.OriginalFilename), pterm.Yellow(filepath.Base(finalPath)))
+	return nil
+
+}
+
+func (h *MovieHandler) renameMovie(ctx context.Context, suggestion mediarenamer.MovieSuggestions, movie mediadata.Movie) error {
+
+	finalPath, err := h.mediaRenamer.RenameMovie(ctx, suggestion.Movie, movie, h.config.Renamer.Patterns.Movie, h.config.Renamer.DryRun)
+	if err != nil {
+		ui.ShowError(ctx, "Error renaming movie: %v", err)
+		return err
+	}
+
+	if filepath.Base(finalPath) == suggestion.Movie.OriginalFilename {
+		ui.ShowSuccess(ctx, "Original filename is already correct for %s", pterm.Yellow(suggestion.Movie.OriginalFilename))
+	} else {
+		ui.ShowInfo(ctx, "Renamed movie %s to %s",
+			pterm.Yellow(suggestion.Movie.OriginalFilename),
+			pterm.Yellow(filepath.Base(finalPath)),
+		)
+	}
 	
 	return nil
 }
